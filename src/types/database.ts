@@ -7,27 +7,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
-      items: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string | undefined;
-          user_id: string;
-          title: string;
-          created_at?: string | undefined;
-        };
-        Update: {
-          id?: string | undefined;
-          user_id?: string | undefined;
-          title?: string | undefined;
-          created_at?: string | undefined;
-        };
-        Relationships: [];
-      };
+      [_ in never]: never;
     };
     Views: {
       [_ in never]: never;

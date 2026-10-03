@@ -1,8 +1,8 @@
 import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// TODO: build out Home screen
-export default function HomeScreen() {
+// TODO: build out Profile screen
+export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   return (
@@ -10,7 +10,7 @@ export default function HomeScreen() {
       className="flex-1 bg-zinc-900 items-center justify-center"
       style={{ paddingTop: insets.top }}
     >
-      <Text className="text-white text-xl font-medium">Home</Text>
+      <Text className="text-white text-xl font-medium">Profile</Text>
     </View>
   );
 }

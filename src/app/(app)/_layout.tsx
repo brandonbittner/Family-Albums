@@ -1,25 +1,7 @@
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { Beer, Camera, ChartArea, House, Trophy } from 'lucide-react-native';
+import { House, User } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
-
-function AddIcon() {
-  // TODO: replace Camera with a custom Guinness glass / split-the-G branded icon
-  return (
-    <View
-      style={{
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#3B82F6',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Camera size={22} stroke="#fff" />
-    </View>
-  );
-}
 
 export default function AppLayout() {
   return (
@@ -60,28 +42,9 @@ export default function AppLayout() {
         options={{ title: 'Home', tabBarIcon: ({ color }) => <House size={22} stroke={color} /> }}
       />
       <Tabs.Screen
-        name="leaders"
-        options={{
-          title: 'Leaders',
-          tabBarIcon: ({ color }) => <Trophy size={22} stroke={color} />,
-        }}
+        name="profile"
+        options={{ title: 'Profile', tabBarIcon: ({ color }) => <User size={22} stroke={color} /> }}
       />
-      <Tabs.Screen
-        name="add"
-        options={{ title: '', tabBarIcon: () => <AddIcon />, tabBarLabel: () => null }}
-      />
-      <Tabs.Screen
-        name="pubs"
-        options={{ title: 'Pubs', tabBarIcon: ({ color }) => <Beer size={22} stroke={color} /> }}
-      />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color }) => <ChartArea size={22} stroke={color} />,
-        }}
-      />
-      <Tabs.Screen name="items/new" options={{ href: null }} />
     </Tabs>
   );
 }
