@@ -21,5 +21,6 @@ module.exports = {
     '.expo/',
     'dist/',
     'supabase/.temp/',
+    'supabase/functions/', // Deno — npm: specifiers aren't resolvable by Node ESLint
   ],
 };
