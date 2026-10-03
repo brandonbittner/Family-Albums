@@ -19,8 +19,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session && process.env.EXPO_PUBLIC_DEV_EMAIL && process.env.EXPO_PUBLIC_DEV_PASSWORD) {
+        const { data } = await supabase.auth.signInWithPassword({
+          email: process.env.EXPO_PUBLIC_DEV_EMAIL,
+          password: process.env.EXPO_PUBLIC_DEV_PASSWORD,
+        });
+        setSession(data.session);
+      } else {
+        setSession(session);
+      }
       setLoading(false);
     });
 

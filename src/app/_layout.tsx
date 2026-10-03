@@ -10,6 +10,7 @@ import { colorScheme } from 'nativewind';
 import { useEffect } from 'react';
 
 import '@/global.css';
+import { AuthProvider } from '@/hooks/use-auth';
 
 SplashScreen.preventAutoHideAsync();
 colorScheme.set('dark');
@@ -31,5 +32,9 @@ export default function RootLayout() {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </AuthProvider>
+  );
 }

@@ -1,9 +1,16 @@
 import { BlurView } from 'expo-blur';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { House, User } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
+import { useAuth } from '@/hooks/use-auth';
+
 export default function AppLayout() {
+  const { session, loading } = useAuth();
+
+  if (loading) return null;
+  if (!session) return <Redirect href="/(auth)/sign-in" />;
+
   return (
     <Tabs
       screenOptions={{
