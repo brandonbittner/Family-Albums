@@ -55,6 +55,10 @@ export default function AppLayout() {
         name="profile"
         options={{ title: 'Profile', tabBarIcon: ({ color }) => <User size={22} stroke={color} /> }}
       />
+      <Tabs.Screen
+        name="create-album"
+        options={{ tabBarButton: () => null, tabBarStyle: { display: 'none' } }}
+      />
     </Tabs>
   );
 }
