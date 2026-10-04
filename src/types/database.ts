@@ -33,6 +33,51 @@ export type Database = {
   };
   public: {
     Tables: {
+      album_artifacts: {
+        Row: {
+          added_at: string;
+          added_by: string;
+          album_id: string;
+          artifact_id: string;
+          position: number;
+          removed_at: string | null;
+          removed_by: string | null;
+        };
+        Insert: {
+          added_at?: string;
+          added_by: string;
+          album_id: string;
+          artifact_id: string;
+          position: number;
+          removed_at?: string | null;
+          removed_by?: string | null;
+        };
+        Update: {
+          added_at?: string;
+          added_by?: string;
+          album_id?: string;
+          artifact_id?: string;
+          position?: number;
+          removed_at?: string | null;
+          removed_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'album_artifacts_album_id_fkey';
+            columns: ['album_id'];
+            isOneToOne: false;
+            referencedRelation: 'albums';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'album_artifacts_artifact_id_fkey';
+            columns: ['artifact_id'];
+            isOneToOne: false;
+            referencedRelation: 'artifacts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       albums: {
         Row: {
           created_at: string;
@@ -69,6 +114,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      artifacts: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          duration_seconds: number | null;
+          file_size_bytes: number;
+          height: number;
+          id: string;
+          media_type: Database['public']['Enums']['media_type'];
+          original_content_type: string;
+          status: Database['public']['Enums']['artifact_status'];
+          taken_at: string | null;
+          updated_at: string;
+          uploaded_by: string;
+          width: number;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          duration_seconds?: number | null;
+          file_size_bytes: number;
+          height: number;
+          id: string;
+          media_type: Database['public']['Enums']['media_type'];
+          original_content_type: string;
+          status?: Database['public']['Enums']['artifact_status'];
+          taken_at?: string | null;
+          updated_at?: string;
+          uploaded_by: string;
+          width: number;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          duration_seconds?: number | null;
+          file_size_bytes?: number;
+          height?: number;
+          id?: string;
+          media_type?: Database['public']['Enums']['media_type'];
+          original_content_type?: string;
+          status?: Database['public']['Enums']['artifact_status'];
+          taken_at?: string | null;
+          updated_at?: string;
+          uploaded_by?: string;
+          width?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -77,7 +170,8 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      artifact_status: 'uploading' | 'ready' | 'failed';
+      media_type: 'photo' | 'video';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -201,6 +295,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      artifact_status: ['uploading', 'ready', 'failed'],
+      media_type: ['photo', 'video'],
+    },
   },
 } as const;
