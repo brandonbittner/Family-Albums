@@ -68,8 +68,9 @@ export default function AlbumsScreen() {
               key={album.id}
               className="overflow-hidden rounded-2xl active:opacity-70"
               style={{ width: '48.5%' }}
-              // TODO: navigate to album detail screen
-              onPress={() => {}}
+              onPress={() =>
+                router.push({ pathname: '/(app)/album/[id]', params: { id: album.id } })
+              }
             >
               <View className="w-full bg-zinc-800 rounded-2xl" style={{ aspectRatio: 1 }}>
                 {/* TODO: display album cover photo from R2 */}

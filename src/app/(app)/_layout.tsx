@@ -59,6 +59,10 @@ export default function AppLayout() {
         name="create-album"
         options={{ tabBarButton: () => null, tabBarStyle: { display: 'none' } }}
       />
+      <Tabs.Screen
+        name="album"
+        options={{ tabBarButton: () => null, tabBarStyle: { display: 'none' } }}
+      />
     </Tabs>
   );
 }
