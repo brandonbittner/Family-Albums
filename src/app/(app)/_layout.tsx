@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { Redirect, Tabs } from 'expo-router';
-import { House, User } from 'lucide-react-native';
+import { Library, User } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -46,7 +46,10 @@ export default function AppLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: 'Home', tabBarIcon: ({ color }) => <House size={22} stroke={color} /> }}
+        options={{
+          title: 'Albums',
+          tabBarIcon: ({ color }) => <Library size={22} stroke={color} />,
+        }}
       />
       <Tabs.Screen
         name="profile"
