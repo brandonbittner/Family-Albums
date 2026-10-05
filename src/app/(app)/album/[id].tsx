@@ -260,8 +260,16 @@ export default function AlbumScreen() {
         marginRight: index % 2 === 0 ? 2 : 0,
         marginBottom: 4,
       }}
-      // TODO: navigate to artifact detail / lightbox
-      onPress={() => {}}
+      onPress={() =>
+        router.push({
+          pathname: '/(app)/album/artifact',
+          params: {
+            artifactId: item.id,
+            mediaType: item.media_type,
+            contentType: item.original_content_type,
+          },
+        })
+      }
     >
       <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#3f3f46' }}>
         <Image
