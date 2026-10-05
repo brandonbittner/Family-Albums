@@ -1,6 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Upload } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
@@ -38,6 +40,42 @@ function parseExifDate(raw: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+// Returns resize options for the new chained ImageManipulator API.
+// Pass one dimension so the other auto-calculates (preserves aspect ratio).
+function thumbResize(w: number, h: number): { width?: number; height?: number } | null {
+  const short = Math.min(w, h);
+  if (short <= 400) return null;
+  return w <= h ? { width: 400 } : { height: 400 };
+}
+
+function displayResize(w: number, h: number): { width?: number; height?: number } | null {
+  const long = Math.max(w, h);
+  if (long <= 2048) return null;
+  return w >= h ? { width: 2048 } : { height: 2048 };
+}
+
+async function resizeToJpeg(
+  uri: string,
+  resize: { width?: number; height?: number } | null,
+  compress: number,
+): Promise<string> {
+  const ctx = ImageManipulator.manipulate(uri);
+  if (resize) ctx.resize(resize);
+  const ref = await ctx.renderAsync();
+  const result = await ref.saveAsync({ format: SaveFormat.JPEG, compress });
+  return result.uri;
+}
+
+// Extracts a still frame from the middle of a video for use as thumb/poster.
+// durationMs comes from expo-image-picker's asset.duration (milliseconds).
+async function extractVideoFrame(
+  uri: string,
+  durationMs: number,
+): Promise<{ uri: string; width: number; height: number }> {
+  const middleMs = Math.max(0, Math.round(durationMs / 2));
+  return VideoThumbnails.getThumbnailAsync(uri, { time: middleMs, quality: 1 });
 }
 
 export default function AlbumScreen() {
@@ -93,8 +131,8 @@ export default function AlbumScreen() {
         const signed = await getArtifactUrls(
           rows.map((a) => ({
             artifactId: a.id,
-            variant: 'original' as Variant,
-            contentType: toContentType(a.original_content_type),
+            variant: 'thumb' as Variant,
+            contentType: 'image/jpeg' as const,
           })),
         );
         for (const { artifactId, url } of signed) {
@@ -119,7 +157,7 @@ export default function AlbumScreen() {
     if (!user) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ['images', 'videos'],
       allowsMultipleSelection: true,
       quality: 1,
       exif: true,
@@ -137,10 +175,11 @@ export default function AlbumScreen() {
 
       setUploadProgress({ current: i + 1, total: result.assets.length });
 
+      const isVideo = asset.type === 'video';
       const { error: insertError } = await supabase.from('artifacts').insert({
         id: artifactId,
         uploaded_by: user.id,
-        media_type: 'photo',
+        media_type: isVideo ? 'video' : 'photo',
         status: 'uploading',
         width: asset.width ?? 0,
         height: asset.height ?? 0,
@@ -155,9 +194,34 @@ export default function AlbumScreen() {
       }
 
       try {
-        await uploadArtifact(artifactId, [
-          { variant: 'original', localUri: asset.uri, contentType },
-        ]);
+        const w = asset.width ?? 0;
+        const h = asset.height ?? 0;
+
+        let uploadFiles: Parameters<typeof uploadArtifact>[1];
+        if (isVideo) {
+          const frame = await extractVideoFrame(asset.uri, asset.duration ?? 0);
+          const [thumbUri, posterUri] = await Promise.all([
+            resizeToJpeg(frame.uri, thumbResize(frame.width, frame.height), 0.8),
+            resizeToJpeg(frame.uri, displayResize(frame.width, frame.height), 0.85),
+          ]);
+          uploadFiles = [
+            { variant: 'original', localUri: asset.uri, contentType },
+            { variant: 'thumb', localUri: thumbUri, contentType: 'image/jpeg' },
+            { variant: 'poster', localUri: posterUri, contentType: 'image/jpeg' },
+          ];
+        } else {
+          const [thumbUri, displayUri] = await Promise.all([
+            resizeToJpeg(asset.uri, thumbResize(w, h), 0.8),
+            resizeToJpeg(asset.uri, displayResize(w, h), 0.85),
+          ]);
+          uploadFiles = [
+            { variant: 'original', localUri: asset.uri, contentType },
+            { variant: 'thumb', localUri: thumbUri, contentType: 'image/jpeg' },
+            { variant: 'display', localUri: displayUri, contentType: 'image/jpeg' },
+          ];
+        }
+
+        await uploadArtifact(artifactId, uploadFiles);
         await Promise.all([
           supabase.from('artifacts').update({ status: 'ready' }).eq('id', artifactId),
           supabase.from('album_artifacts').insert({
