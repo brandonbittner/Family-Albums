@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
 import { getArtifactUrls } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -273,10 +274,10 @@ function EmptyState() {
           }}
         />
       </View>
-      <Text style={{ color: '#0F172A', fontSize: 20, fontWeight: '700', marginBottom: 6 }}>
+      <Text style={{ color: '#F1F5F9', fontSize: 20, fontWeight: '700', marginBottom: 6 }}>
         Create Your First Album
       </Text>
-      <Text style={{ color: '#64748B', fontSize: 14, textAlign: 'center', marginBottom: 28 }}>
+      <Text style={{ color: '#94A3B8', fontSize: 14, textAlign: 'center', marginBottom: 28 }}>
         Collect memories and moments in a beautiful album
       </Text>
       <Pressable
@@ -301,17 +302,61 @@ const COLUMN_COUNT = 3;
 const COLUMN_GAP = 14;
 const H_PADDING = 16; // wall strip width
 const CONTENT_PADDING = 28; // gap between wall and books
+const SCREEN_WIDTH = Dimensions.get('window').width;
 const ITEM_WIDTH =
-  (Dimensions.get('window').width - CONTENT_PADDING * 2 - COLUMN_GAP * (COLUMN_COUNT - 1)) /
-  COLUMN_COUNT;
+  (SCREEN_WIDTH - CONTENT_PADDING * 2 - COLUMN_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
 const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
 const ROW_SECTION_HEIGHT = 24 + ITEM_HEIGHT + 19; // paddingTop + books + shelf
+const GRAIN_HEIGHT = Math.round(24 + ITEM_HEIGHT);
 const MIN_ROWS = Math.ceil(Dimensions.get('window').height / ROW_SECTION_HEIGHT) + 2;
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
+}
+
+// ── Wood grain texture ─────────────────────────────────────────────────────────
+
+function sr(seed: number): number {
+  const x = Math.sin(seed * 9301.0 + 49297.0) * 233280.0;
+  return x - Math.floor(x);
+}
+
+function WoodGrain({ seed }: { seed: number }) {
+  const lines: React.ReactElement[] = [];
+  let y = 2;
+  let li = 0;
+  while (y < GRAIN_HEIGHT - 2) {
+    const b = seed * 1000 + li * 37;
+    const amp = 1 + sr(b) * 3.5;
+    const sw = 0.25 + sr(b + 1) * 0.8;
+    const op = 0.03 + sr(b + 2) * 0.09;
+    const segs = 10;
+    const segW = SCREEN_WIDTH / segs;
+    let d = `M 0 ${y.toFixed(2)}`;
+    for (let s = 0; s < segs; s++) {
+      const x1 = (s * segW + segW * 0.3).toFixed(2);
+      const y1 = (y + (sr(b + s * 4 + 3) - 0.5) * amp * 2).toFixed(2);
+      const x2 = (s * segW + segW * 0.7).toFixed(2);
+      const y2 = (y + (sr(b + s * 4 + 4) - 0.5) * amp * 2).toFixed(2);
+      const x3 = ((s + 1) * segW).toFixed(2);
+      const y3 = (y + (sr(b + s * 4 + 5) - 0.5) * amp).toFixed(2);
+      d += ` C ${x1} ${y1} ${x2} ${y2} ${x3} ${y3}`;
+    }
+    lines.push(
+      <Path key={li} d={d} stroke="#475569" strokeWidth={sw} strokeOpacity={op} fill="none" />,
+    );
+    y += 2.5 + sr(b + 6) * 4.5 + sw;
+    li++;
+  }
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
+      <Svg width={SCREEN_WIDTH} height={GRAIN_HEIGHT}>
+        {lines}
+      </Svg>
+    </View>
+  );
 }
 
 function TopShelf() {
@@ -331,9 +376,9 @@ function TopShelf() {
       <View
         style={{
           height: 18,
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#0F172A',
           borderBottomWidth: 1,
-          borderBottomColor: '#D4DCE8',
+          borderBottomColor: '#0F172A',
         }}
       />
     </View>
@@ -356,9 +401,9 @@ function Bookshelf() {
       <View
         style={{
           height: 18,
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#0F172A',
           borderTopWidth: 1,
-          borderTopColor: '#FFFFFF',
+          borderTopColor: '#475569',
         }}
       />
     </View>
@@ -452,7 +497,7 @@ export default function AlbumsScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
       {/* Left wall */}
       <View
         pointerEvents="none"
@@ -462,7 +507,7 @@ export default function AlbumsScreen() {
           top: 0,
           bottom: 0,
           width: H_PADDING,
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#0F172A',
           zIndex: 1,
         }}
       />
@@ -475,12 +520,12 @@ export default function AlbumsScreen() {
           top: 0,
           bottom: 0,
           width: H_PADDING,
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#0F172A',
           zIndex: 1,
         }}
       />
       <ScrollView
-        style={{ flex: 1, backgroundColor: '#F8FAFC' }}
+        style={{ flex: 1, backgroundColor: '#0F172A' }}
         contentContainerStyle={{
           paddingTop: insets.top + 16,
           paddingBottom: insets.bottom + 100,
@@ -508,12 +553,12 @@ export default function AlbumsScreen() {
         >
           <View>
             <Text
-              style={{ fontSize: 26, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 }}
+              style={{ fontSize: 26, fontWeight: '800', color: '#F1F5F9', letterSpacing: -0.5 }}
             >
               My Albums
             </Text>
             {albums.length > 0 && (
-              <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
+              <Text style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>
                 {albums.length} {albums.length === 1 ? 'album' : 'albums'}
               </Text>
             )}
@@ -549,7 +594,7 @@ export default function AlbumsScreen() {
               const rows = chunkArray(albums, COLUMN_COUNT);
               const emptyCount = Math.max(0, MIN_ROWS - rows.length);
 
-              const shelfSection = (content: React.ReactNode, key: React.Key) => (
+              const shelfSection = (content: React.ReactNode, key: React.Key, seedIdx: number) => (
                 <View key={key}>
                   <View
                     style={{
@@ -557,9 +602,11 @@ export default function AlbumsScreen() {
                       paddingHorizontal: CONTENT_PADDING,
                       paddingTop: 24,
                       paddingBottom: 0,
-                      backgroundColor: '#D4DCE8',
+                      backgroundColor: '#090E20',
+                      overflow: 'hidden',
                     }}
                   >
+                    <WoodGrain seed={seedIdx} />
                     {content}
                   </View>
                   <Bookshelf />
@@ -600,10 +647,15 @@ export default function AlbumsScreen() {
                         ))}
                       </View>,
                       rowIdx,
+                      rowIdx,
                     ),
                   )}
                   {Array.from({ length: emptyCount }).map((_, i) =>
-                    shelfSection(<View style={{ height: ITEM_HEIGHT }} />, `empty-${i}`),
+                    shelfSection(
+                      <View style={{ height: ITEM_HEIGHT }} />,
+                      `empty-${i}`,
+                      rows.length + i,
+                    ),
                   )}
                 </>
               );

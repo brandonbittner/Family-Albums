@@ -20,7 +20,7 @@ export default function AppLayout() {
           backgroundColor: 'transparent',
           paddingHorizontal: 16,
           borderTopWidth: 1,
-          borderTopColor: '#E2E8F0',
+          borderTopColor: '#334155',
           height: 80,
           paddingBottom: 32,
           paddingTop: 14,
@@ -32,14 +32,12 @@ export default function AppLayout() {
         },
         tabBarBackground: () => (
           <>
-            <BlurView intensity={40} tint="extraLight" style={StyleSheet.absoluteFill} />
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(248,250,252,0.85)' }]}
-            />
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15,23,42,0.9)' }]} />
           </>
         ),
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: '#60A5FA',
+        tabBarInactiveTintColor: '#64748B',
         tabBarLabelStyle: {
           fontSize: 13,
           fontWeight: '500',
