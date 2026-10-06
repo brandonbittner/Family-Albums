@@ -17,30 +17,54 @@ export default function AppLayout() {
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
+          bottom: 16,
+          marginHorizontal: 16,
           backgroundColor: 'transparent',
+          borderRadius: 36,
+          height: 72,
+          paddingBottom: 0,
+          paddingTop: 0,
           paddingHorizontal: 16,
-          borderTopWidth: 1,
-          borderTopColor: '#404040',
-          height: 80,
-          paddingBottom: 32,
-          paddingTop: 14,
+          borderTopWidth: 0,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          elevation: 8,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.3,
+          shadowRadius: 16,
+          elevation: 12,
         },
         tabBarBackground: () => (
-          <>
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(38,38,38,0.9)' }]} />
-          </>
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: 36,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+              },
+            ]}
+          >
+            <BlurView
+              intensity={20}
+              tint="systemUltraThinMaterialDark"
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
+          </View>
         ),
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingTop: 10,
+          paddingBottom: 0,
+          gap: 3,
+        },
         tabBarActiveTintColor: '#60A5FA',
         tabBarInactiveTintColor: '#737373',
         tabBarLabelStyle: {
-          fontSize: 13,
+          fontSize: 11,
           fontWeight: '500',
+          marginTop: 0,
         },
       }}
     >

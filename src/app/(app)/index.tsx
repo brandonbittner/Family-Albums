@@ -1,9 +1,17 @@
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -13,230 +21,38 @@ import type { Database } from '@/types/database';
 
 type Album = Database['public']['Tables']['albums']['Row'];
 
-// ── Palettes ─────────────────────────────────────────────────────────────────
+// ── Book cover ────────────────────────────────────────────────────────────────
 
-const PALETTES = [
-  { spine: '#3D0C11', cover: '#6B1A22', text: '#F5E6C8', accent: '#C9956B' },
-  { spine: '#0A2E1A', cover: '#1A4D2E', text: '#E8F5E9', accent: '#82C18A' },
-  { spine: '#0A1128', cover: '#1A2C5E', text: '#E8EAF6', accent: '#90A4C9' },
-  { spine: '#2D1B0E', cover: '#5C3317', text: '#FFF3E0', accent: '#D4A96A' },
-  { spine: '#1A2030', cover: '#2D3A54', text: '#ECEFF1', accent: '#7B9AB4' },
-  { spine: '#2A0A2E', cover: '#4A1558', text: '#F3E5F5', accent: '#C389D4' },
-  { spine: '#2E1A0A', cover: '#5C3517', text: '#FFF8E1', accent: '#C8874A' },
-  { spine: '#0A2A2E', cover: '#1A4D54', text: '#E0F7FA', accent: '#6AB8C0' },
-  { spine: '#1E1E0A', cover: '#3D3A0E', text: '#FFFDE7', accent: '#D4C46A' },
-  { spine: '#200A0A', cover: '#4D1515', text: '#FFF0F0', accent: '#C46A6A' },
-  { spine: '#0A0A2E', cover: '#15154D', text: '#F0F0FF', accent: '#6A6AC4' },
-  { spine: '#0A1E1A', cover: '#143D35', text: '#E0FFF9', accent: '#6AC4B0' },
-] as const;
-
-type Palette = {
-  readonly spine: string;
-  readonly cover: string;
-  readonly text: string;
-  readonly accent: string;
-};
-
-function hashId(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function getPalette(id: string): Palette {
-  return PALETTES[hashId(id) % PALETTES.length];
-}
-
-// ── Cover building blocks ─────────────────────────────────────────────────────
-
-const PHOTO_GAP = 2;
-
-function PhotoPanel({ url, flex = 1 }: { url: string; flex?: number }) {
-  return (
-    <View style={{ flex, overflow: 'hidden' }}>
-      <Image
-        source={{ uri: url }}
-        style={{ width: '100%', height: '100%' }}
-        contentFit="cover"
-        transition={300}
-      />
-    </View>
-  );
-}
-
-function TitleBand({ title, p }: { title: string; p: Palette }) {
-  return (
-    <View
-      style={{
-        backgroundColor: p.cover,
-        paddingVertical: 7,
-        paddingHorizontal: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: p.accent + '66',
-      }}
-    >
-      <Text
-        style={{
-          color: p.accent,
-          fontSize: 8,
-          fontWeight: '900',
-          textAlign: 'center',
-          letterSpacing: 1.5,
-          textTransform: 'uppercase',
-          lineHeight: 11,
-        }}
-        numberOfLines={2}
-      >
-        {title}
-      </Text>
-    </View>
-  );
-}
-
-// ── Cover face — layout switches on photo count ───────────────────────────────
-
-function CoverFace({ album, p, photoUrls }: { album: Album; p: Palette; photoUrls: string[] }) {
-  const n = photoUrls.length;
-
-  // 0 photos — decorative solid cover
-  if (n === 0) {
-    return (
-      <View style={{ flex: 1, backgroundColor: p.cover, padding: 12 }}>
-        <View style={{ height: 1.5, backgroundColor: p.accent, opacity: 0.7 }} />
-        <View style={{ height: 1, backgroundColor: p.accent, marginTop: 3, opacity: 0.35 }} />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text
-            style={{
-              color: p.text,
-              fontSize: 10,
-              fontWeight: '800',
-              textAlign: 'center',
-              letterSpacing: 0.8,
-              lineHeight: 15,
-              textTransform: 'uppercase',
-            }}
-            numberOfLines={6}
-          >
-            {album.title}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 4 }}>
-            <View style={{ height: 1, width: 18, backgroundColor: p.accent, opacity: 0.6 }} />
-            <View
-              style={{
-                width: 4,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: p.accent,
-                opacity: 0.8,
-              }}
-            />
-            <View style={{ height: 1, width: 18, backgroundColor: p.accent, opacity: 0.6 }} />
-          </View>
-        </View>
-        <View style={{ height: 1, backgroundColor: p.accent, marginBottom: 3, opacity: 0.35 }} />
-        <View style={{ height: 1.5, backgroundColor: p.accent, opacity: 0.7 }} />
-      </View>
-    );
-  }
-
-  // 1 photo — full bleed + bottom title band
-  if (n === 1) {
-    return (
-      <View style={{ flex: 1 }}>
-        <PhotoPanel url={photoUrls[0]} flex={1} />
-        <TitleBand title={album.title} p={p} />
-      </View>
-    );
-  }
-
-  // 2 photos — side-by-side top + title band
-  if (n === 2) {
-    return (
-      <View style={{ flex: 1, backgroundColor: p.cover, gap: PHOTO_GAP }}>
-        <View style={{ flex: 6, flexDirection: 'row', gap: PHOTO_GAP }}>
-          <PhotoPanel url={photoUrls[0]} />
-          <PhotoPanel url={photoUrls[1]} />
-        </View>
-        <TitleBand title={album.title} p={p} />
-        <View style={{ flex: 2 }} />
-      </View>
-    );
-  }
-
-  // 3 photos — [photo|photo] / title / full-width photo
-  if (n === 3) {
-    return (
-      <View style={{ flex: 1, backgroundColor: p.cover, gap: PHOTO_GAP }}>
-        <View style={{ flex: 4, flexDirection: 'row', gap: PHOTO_GAP }}>
-          <PhotoPanel url={photoUrls[0]} />
-          <PhotoPanel url={photoUrls[1]} />
-        </View>
-        <TitleBand title={album.title} p={p} />
-        <PhotoPanel url={photoUrls[2]} flex={5} />
-      </View>
-    );
-  }
-
-  // 4 photos — Lisboa-style asymmetric collage
-  return (
-    <View style={{ flex: 1, backgroundColor: p.cover, gap: PHOTO_GAP }}>
-      <View style={{ flex: 5, flexDirection: 'row', gap: PHOTO_GAP }}>
-        <PhotoPanel url={photoUrls[0]} flex={2} />
-        <PhotoPanel url={photoUrls[1]} flex={1} />
-      </View>
-      <TitleBand title={album.title} p={p} />
-      <View style={{ flex: 5, flexDirection: 'row', gap: PHOTO_GAP }}>
-        <PhotoPanel url={photoUrls[2]} flex={1} />
-        <PhotoPanel url={photoUrls[3]} flex={2} />
-      </View>
-    </View>
-  );
-}
-
-// ── Book cover shell (spine + shadow) ────────────────────────────────────────
-
-function BookCover({ album, photoUrls }: { album: Album; photoUrls: string[] }) {
-  const p = getPalette(album.id);
-
+function BookCover({ album }: { album: Album; photoUrls: string[] }) {
   return (
     <View
       style={{
         flex: 1,
-        borderRadius: 5,
+        borderRadius: 4,
+        overflow: 'hidden',
+        backgroundColor: '#FFFFFF',
         shadowColor: '#000',
-        shadowOffset: { width: 2, height: 6 },
-        shadowOpacity: 0.4,
+        shadowOffset: { width: 2, height: 4 },
+        shadowOpacity: 0.35,
         shadowRadius: 4,
-        elevation: 10,
+        elevation: 8,
+        padding: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
-      <View style={{ flex: 1, flexDirection: 'row', borderRadius: 5, overflow: 'hidden' }}>
-        {/* Spine */}
-        <View
-          style={{
-            width: 12,
-            backgroundColor: p.spine,
-            borderRightWidth: 1,
-            borderRightColor: 'rgba(255,255,255,0.08)',
-          }}
-        >
-          <View
-            style={{
-              position: 'absolute',
-              left: 2,
-              top: 0,
-              bottom: 0,
-              width: 1.5,
-              backgroundColor: 'rgba(255,255,255,0.15)',
-            }}
-          />
-        </View>
-        {/* Cover face */}
-        <CoverFace album={album} p={p} photoUrls={photoUrls} />
-      </View>
+      <Text
+        style={{
+          color: '#1A1A1A',
+          fontSize: 13,
+          fontWeight: '600',
+          textAlign: 'center',
+          lineHeight: 18,
+        }}
+        numberOfLines={4}
+      >
+        {album.title}
+      </Text>
     </View>
   );
 }
@@ -306,6 +122,7 @@ const COLUMN_GAP = 14;
 const H_PADDING = 16; // wall strip width
 const CONTENT_PADDING = 28; // gap between wall and books
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const ITEM_WIDTH =
   (SCREEN_WIDTH - CONTENT_PADDING * 2 - COLUMN_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
 const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
@@ -465,7 +282,7 @@ export default function AlbumsScreen() {
   );
 
   return (
-    <LinearGradient colors={WALL_GRADIENT} style={{ flex: 1 }}>
+    <LinearGradient colors={WALL_GRADIENT} style={{ flex: 1, minHeight: SCREEN_HEIGHT }}>
       {/* Left wall — same gradient masks any scrolling content bleed at edges */}
       <LinearGradient
         colors={WALL_GRADIENT}
@@ -505,36 +322,75 @@ export default function AlbumsScreen() {
             marginBottom: 4,
           }}
         >
-          <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Text
-              style={{ fontSize: 26, fontWeight: '800', color: '#F5F5F5', letterSpacing: -0.5 }}
+              style={{ fontSize: 26, fontWeight: '500', color: '#F5F5F5', letterSpacing: -0.5 }}
             >
               My Albums
             </Text>
             {albums.length > 0 && (
-              <Text style={{ fontSize: 13, color: '#A3A3A3', marginTop: 2 }}>
-                {albums.length} {albums.length === 1 ? 'album' : 'albums'}
-              </Text>
+              <View
+                style={{
+                  borderRadius: 12,
+                  minWidth: 24,
+                  height: 24,
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: 'rgba(96,165,250,0.4)',
+                }}
+              >
+                <BlurView
+                  intensity={20}
+                  tint="systemUltraThinMaterialDark"
+                  style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 6,
+                  }}
+                >
+                  <View
+                    style={{
+                      ...StyleSheet.absoluteFill,
+                      backgroundColor: 'rgba(59,130,246,0.45)',
+                    }}
+                  />
+                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
+                    {albums.length}
+                  </Text>
+                </BlurView>
+              </View>
             )}
           </View>
-          {albums.length > 0 && (
-            <Pressable
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                backgroundColor: '#3B82F6',
-                borderRadius: 20,
-                paddingVertical: 8,
-                paddingHorizontal: 14,
-                opacity: pressed ? 0.8 : 1,
-              })}
-              onPress={() => router.push('/(app)/create-album')}
+          <Pressable
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            onPress={() => router.push('/(app)/create-album')}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.15)',
+              }}
             >
-              <Plus size={15} color="#FFFFFF" />
-              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>New</Text>
-            </Pressable>
-          )}
+              <BlurView
+                intensity={20}
+                tint="systemUltraThinMaterialDark"
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <View
+                  style={{
+                    ...StyleSheet.absoluteFill,
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                  }}
+                />
+                <Plus size={18} color="#F5F5F5" />
+              </BlurView>
+            </View>
+          </Pressable>
         </View>
 
         {loading ? (
