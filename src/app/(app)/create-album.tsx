@@ -42,27 +42,27 @@ export default function CreateAlbumScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-zinc-900"
+      className="flex-1 bg-slate-50"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1" style={{ paddingTop: insets.top }}>
         {/* Header */}
-        <View className="flex-row items-center px-4 h-14">
+        <View className="flex-row items-center px-4 h-14 border-b border-slate-100">
           <Pressable onPress={() => router.back()} hitSlop={12} className="mr-3">
-            <ArrowLeft size={22} color="#a1a1aa" />
+            <ArrowLeft size={22} color="#374151" />
           </Pressable>
-          <Text className="text-white text-lg font-semibold">New Album</Text>
+          <Text className="text-slate-900 text-lg font-semibold">New Album</Text>
         </View>
 
         {/* Fields */}
-        <View className="flex-1 px-4 pt-4">
-          <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-widest mb-2">
+        <View className="flex-1 px-4 pt-6">
+          <Text className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-2">
             Title <Text className="text-blue-500">*</Text>
           </Text>
           <TextInput
-            className="bg-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base mb-6"
+            className="bg-white text-slate-900 rounded-2xl px-4 py-3.5 text-base mb-6 border border-slate-200"
             placeholder="e.g. Summer 2026"
-            placeholderTextColor="#52525b"
+            placeholderTextColor="#94A3B8"
             value={title}
             onChangeText={setTitle}
             autoFocus
@@ -70,13 +70,13 @@ export default function CreateAlbumScreen() {
             editable={!loading}
           />
 
-          <Text className="text-zinc-400 text-xs font-semibold uppercase tracking-widest mb-2">
+          <Text className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-2">
             Description
           </Text>
           <TextInput
-            className="bg-zinc-800 text-white rounded-2xl px-4 py-3.5 text-base"
+            className="bg-white text-slate-900 rounded-2xl px-4 py-3.5 text-base border border-slate-200"
             placeholder="Optional"
-            placeholderTextColor="#52525b"
+            placeholderTextColor="#94A3B8"
             value={description}
             onChangeText={setDescription}
             multiline
@@ -91,13 +91,13 @@ export default function CreateAlbumScreen() {
         <View className="px-4" style={{ paddingBottom: insets.bottom + 16 }}>
           <Pressable
             className="rounded-2xl py-4 items-center"
-            style={{ backgroundColor: canSubmit && !loading ? '#2563eb' : '#27272a' }}
+            style={{ backgroundColor: canSubmit && !loading ? '#2563eb' : '#E2E8F0' }}
             onPress={handleCreate}
             disabled={!canSubmit || loading}
           >
             <Text
               className="font-semibold text-base"
-              style={{ color: canSubmit && !loading ? 'white' : '#52525b' }}
+              style={{ color: canSubmit && !loading ? 'white' : '#94A3B8' }}
             >
               {loading ? 'Creating…' : 'Create Album'}
             </Text>

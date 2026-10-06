@@ -7,10 +7,10 @@ export default function ProfileScreen() {
 
   return (
     <View
-      className="flex-1 bg-zinc-900 items-center justify-center"
+      className="flex-1 bg-slate-50 items-center justify-center"
       style={{ paddingTop: insets.top }}
     >
-      <Text className="text-white text-xl font-medium">Profile</Text>
+      <Text className="text-slate-900 text-xl font-medium">Profile</Text>
     </View>
   );
 }

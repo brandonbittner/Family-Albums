@@ -271,7 +271,7 @@ export default function AlbumScreen() {
         })
       }
     >
-      <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#3f3f46' }}>
+      <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#E2E8F0' }}>
         <Image
           source={item.url ? { uri: item.url } : undefined}
           style={{ width: '100%', height: '100%' }}
@@ -288,9 +288,9 @@ export default function AlbumScreen() {
         <ActivityIndicator color="#a1a1aa" />
       ) : (
         <>
-          <Text className="text-white text-2xl font-bold">{album?.title}</Text>
+          <Text className="text-slate-900 text-2xl font-bold">{album?.title}</Text>
           {album?.description ? (
-            <Text className="text-zinc-400 text-base mt-1.5">{album.description}</Text>
+            <Text className="text-slate-500 text-base mt-1.5">{album.description}</Text>
           ) : null}
         </>
       )}
@@ -302,17 +302,17 @@ export default function AlbumScreen() {
       <ActivityIndicator color="#a1a1aa" className="mt-12" />
     ) : (
       <View className="items-center mt-16">
-        <Text className="text-zinc-500 text-base">No photos yet</Text>
-        <Text className="text-zinc-600 text-sm mt-1">Tap the button below to add some</Text>
+        <Text className="text-slate-400 text-base">No photos yet</Text>
+        <Text className="text-slate-400 text-sm mt-1">Tap the button below to add some</Text>
       </View>
     );
 
   return (
-    <View className="flex-1 bg-zinc-900" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-slate-50" style={{ paddingTop: insets.top }}>
       {/* Header */}
-      <View className="flex-row items-center px-4 h-14">
+      <View className="flex-row items-center px-4 h-14 border-b border-slate-100">
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <ArrowLeft size={22} color="#a1a1aa" />
+          <ArrowLeft size={22} color="#374151" />
         </Pressable>
       </View>
 
@@ -332,13 +332,13 @@ export default function AlbumScreen() {
       {/* Upload progress bar */}
       {uploading && uploadProgress && (
         <View
-          className="absolute bottom-0 left-0 right-0 bg-zinc-800 border-t border-zinc-700 px-6 py-4"
+          className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-4"
           style={{ paddingBottom: insets.bottom + 16 }}
         >
-          <Text className="text-white text-sm font-medium mb-2">
+          <Text className="text-slate-900 text-sm font-medium mb-2">
             Uploading {uploadProgress.current} of {uploadProgress.total}…
           </Text>
-          <View className="bg-zinc-700 rounded-full h-1.5">
+          <View className="bg-slate-200 rounded-full h-1.5">
             <View
               className="bg-blue-500 rounded-full h-1.5"
               style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}

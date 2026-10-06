@@ -15,29 +15,31 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: '#52525b',
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',
           paddingHorizontal: 16,
           borderTopWidth: 1,
-          borderTopColor: '#27272a',
+          borderTopColor: '#E2E8F0',
           height: 80,
           paddingBottom: 32,
           paddingTop: 14,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.5,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
           shadowRadius: 8,
-          elevation: 16,
+          elevation: 8,
         },
         tabBarBackground: () => (
           <>
-            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(24,24,27,0.9)' }]} />
+            <BlurView intensity={40} tint="extraLight" style={StyleSheet.absoluteFill} />
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(248,250,252,0.85)' }]}
+            />
           </>
         ),
+        tabBarActiveTintColor: '#3B82F6',
+        tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle: {
           fontSize: 13,
           fontWeight: '500',

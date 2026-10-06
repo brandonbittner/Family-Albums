@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -205,10 +205,10 @@ function BookCover({ album, photoUrls }: { album: Album; photoUrls: string[] }) 
         flex: 1,
         borderRadius: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.6,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.18,
         shadowRadius: 12,
-        elevation: 14,
+        elevation: 8,
       }}
     >
       <View style={{ flex: 1, flexDirection: 'row', borderRadius: 5, overflow: 'hidden' }}>
@@ -273,10 +273,10 @@ function EmptyState() {
           }}
         />
       </View>
-      <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700', marginBottom: 6 }}>
+      <Text style={{ color: '#0F172A', fontSize: 20, fontWeight: '700', marginBottom: 6 }}>
         Create Your First Album
       </Text>
-      <Text style={{ color: '#71717A', fontSize: 14, textAlign: 'center', marginBottom: 28 }}>
+      <Text style={{ color: '#64748B', fontSize: 14, textAlign: 'center', marginBottom: 28 }}>
         Collect memories and moments in a beautiful album
       </Text>
       <Pressable
@@ -299,14 +299,45 @@ function EmptyState() {
 
 const COLUMN_COUNT = 3;
 const COLUMN_GAP = 14;
-const H_PADDING = 16;
+const H_PADDING = 16; // wall strip width
+const CONTENT_PADDING = 28; // gap between wall and books
 const ITEM_WIDTH =
-  (Dimensions.get('window').width - H_PADDING * 2 - COLUMN_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
+  (Dimensions.get('window').width - CONTENT_PADDING * 2 - COLUMN_GAP * (COLUMN_COUNT - 1)) /
+  COLUMN_COUNT;
+const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
+const ROW_SECTION_HEIGHT = 24 + ITEM_HEIGHT + 19; // paddingTop + books + shelf
+const MIN_ROWS = Math.ceil(Dimensions.get('window').height / ROW_SECTION_HEIGHT) + 2;
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
+}
+
+function TopShelf() {
+  return (
+    <View
+      style={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 10,
+        marginTop: 16,
+        marginBottom: 0,
+        marginHorizontal: -CONTENT_PADDING,
+      }}
+    >
+      <View
+        style={{
+          height: 18,
+          backgroundColor: '#F8FAFC',
+          borderBottomWidth: 1,
+          borderBottomColor: '#E2E8F0',
+        }}
+      />
+    </View>
+  );
 }
 
 function Bookshelf() {
@@ -315,18 +346,21 @@ function Bookshelf() {
       style={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.55,
-        shadowRadius: 10,
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
         elevation: 10,
-        marginBottom: 28,
+        marginBottom: 0,
+        marginHorizontal: -CONTENT_PADDING,
       }}
     >
-      {/* Top catching-light edge */}
-      <View style={{ height: 3, backgroundColor: '#A07840' }} />
-      {/* Main plank */}
-      <View style={{ height: 16, backgroundColor: '#6B4220' }} />
-      {/* Front-face darker lip */}
-      <View style={{ height: 5, backgroundColor: '#3D2410' }} />
+      <View
+        style={{
+          height: 18,
+          backgroundColor: '#F8FAFC',
+          borderTopWidth: 1,
+          borderTopColor: '#FFFFFF',
+        }}
+      />
     </View>
   );
 }
@@ -336,6 +370,8 @@ export default function AlbumsScreen() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [coverUrls, setCoverUrls] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
+  const [scrollEnabled, setScrollEnabled] = useState(false);
+  const containerHRef = useRef(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -416,95 +452,165 @@ export default function AlbumsScreen() {
   );
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: '#09090B' }}
-      contentContainerStyle={{
-        paddingTop: insets.top + 16,
-        paddingBottom: insets.bottom + 100,
-        paddingHorizontal: 16,
-      }}
-    >
-      {/* Header */}
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      {/* Left wall */}
       <View
+        pointerEvents="none"
         style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 24,
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: H_PADDING,
+          backgroundColor: '#F8FAFC',
+          zIndex: 1,
+        }}
+      />
+      {/* Right wall */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: H_PADDING,
+          backgroundColor: '#F8FAFC',
+          zIndex: 1,
+        }}
+      />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: '#F8FAFC' }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 16,
+          paddingBottom: insets.bottom + 100,
+          paddingHorizontal: CONTENT_PADDING,
+        }}
+        scrollEnabled={scrollEnabled}
+        onLayout={(e) => {
+          containerHRef.current = e.nativeEvent.layout.height;
+        }}
+        onContentSizeChange={(_w, totalH) => {
+          const realRows = Math.ceil(albums.length / COLUMN_COUNT);
+          const emptyRows = Math.max(0, MIN_ROWS - realRows);
+          const realH = totalH - emptyRows * ROW_SECTION_HEIGHT;
+          setScrollEnabled(realH > containerHRef.current);
         }}
       >
-        <View>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 }}>
-            My Albums
-          </Text>
-          {albums.length > 0 && (
-            <Text style={{ fontSize: 13, color: '#71717A', marginTop: 2 }}>
-              {albums.length} {albums.length === 1 ? 'album' : 'albums'}
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 24,
+          }}
+        >
+          <View>
+            <Text
+              style={{ fontSize: 26, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 }}
+            >
+              My Albums
             </Text>
+            {albums.length > 0 && (
+              <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
+                {albums.length} {albums.length === 1 ? 'album' : 'albums'}
+              </Text>
+            )}
+          </View>
+          {albums.length > 0 && (
+            <Pressable
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: '#3B82F6',
+                borderRadius: 20,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                opacity: pressed ? 0.8 : 1,
+              })}
+              onPress={() => router.push('/(app)/create-album')}
+            >
+              <Plus size={15} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>New</Text>
+            </Pressable>
           )}
         </View>
-        {albums.length > 0 && (
-          <Pressable
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: '#3B82F6',
-              borderRadius: 20,
-              paddingVertical: 8,
-              paddingHorizontal: 14,
-              opacity: pressed ? 0.8 : 1,
-            })}
-            onPress={() => router.push('/(app)/create-album')}
-          >
-            <Plus size={15} color="#FFFFFF" />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>New</Text>
-          </Pressable>
-        )}
-      </View>
 
-      {loading ? (
-        <ActivityIndicator color="#3B82F6" style={{ marginTop: 60 }} />
-      ) : albums.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <View>
-          {chunkArray(albums, COLUMN_COUNT).map((row, rowIdx) => (
-            <View key={rowIdx}>
-              {/* Book row */}
-              <View style={{ flexDirection: 'row', gap: COLUMN_GAP }}>
-                {row.map((album) => (
-                  <Pressable
-                    key={album.id}
-                    style={{ width: ITEM_WIDTH }}
-                    onPress={() =>
-                      router.push({ pathname: '/(app)/album/[id]', params: { id: album.id } })
-                    }
+        {loading ? (
+          <ActivityIndicator color="#3B82F6" style={{ marginTop: 60 }} />
+        ) : albums.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <View>
+            <TopShelf />
+            {(() => {
+              const rows = chunkArray(albums, COLUMN_COUNT);
+              const emptyCount = Math.max(0, MIN_ROWS - rows.length);
+
+              const shelfSection = (content: React.ReactNode, key: React.Key) => (
+                <View key={key}>
+                  <View
+                    style={{
+                      marginHorizontal: -CONTENT_PADDING,
+                      paddingHorizontal: CONTENT_PADDING,
+                      paddingTop: 24,
+                      paddingBottom: 0,
+                      backgroundColor: '#E2E8F0',
+                    }}
                   >
-                    {({ pressed }) => (
-                      <View
-                        style={{
-                          aspectRatio: 2 / 3,
-                          transform: [{ scale: pressed ? 0.95 : 1 }],
-                          opacity: pressed ? 0.9 : 1,
-                        }}
-                      >
-                        <BookCover album={album} photoUrls={coverUrls[album.id] ?? []} />
-                      </View>
-                    )}
-                  </Pressable>
-                ))}
-                {/* Fill empty slots in the last row so books align left */}
-                {Array.from({ length: COLUMN_COUNT - row.length }).map((_, i) => (
-                  <View key={`spacer-${i}`} style={{ width: ITEM_WIDTH }} />
-                ))}
-              </View>
-              {/* Shelf plank */}
-              <Bookshelf />
-            </View>
-          ))}
-        </View>
-      )}
-    </ScrollView>
+                    {content}
+                  </View>
+                  <Bookshelf />
+                </View>
+              );
+
+              return (
+                <>
+                  {rows.map((row, rowIdx) =>
+                    shelfSection(
+                      <View style={{ flexDirection: 'row', gap: COLUMN_GAP }}>
+                        {row.map((album) => (
+                          <Pressable
+                            key={album.id}
+                            style={{ width: ITEM_WIDTH }}
+                            onPress={() =>
+                              router.push({
+                                pathname: '/(app)/album/[id]',
+                                params: { id: album.id },
+                              })
+                            }
+                          >
+                            {({ pressed }) => (
+                              <View
+                                style={{
+                                  aspectRatio: 2 / 3,
+                                  transform: [{ scale: pressed ? 0.95 : 1 }],
+                                  opacity: pressed ? 0.9 : 1,
+                                }}
+                              >
+                                <BookCover album={album} photoUrls={coverUrls[album.id] ?? []} />
+                              </View>
+                            )}
+                          </Pressable>
+                        ))}
+                        {Array.from({ length: COLUMN_COUNT - row.length }).map((_, i) => (
+                          <View key={`spacer-${i}`} style={{ width: ITEM_WIDTH }} />
+                        ))}
+                      </View>,
+                      rowIdx,
+                    ),
+                  )}
+                  {Array.from({ length: emptyCount }).map((_, i) =>
+                    shelfSection(<View style={{ height: ITEM_HEIGHT }} />, `empty-${i}`),
+                  )}
+                </>
+              );
+            })()}
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
