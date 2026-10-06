@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { Plus } from 'lucide-react-native';
@@ -274,10 +275,10 @@ function EmptyState() {
           }}
         />
       </View>
-      <Text style={{ color: '#F1F5F9', fontSize: 20, fontWeight: '700', marginBottom: 6 }}>
+      <Text style={{ color: '#F5F5F5', fontSize: 20, fontWeight: '700', marginBottom: 6 }}>
         Create Your First Album
       </Text>
-      <Text style={{ color: '#94A3B8', fontSize: 14, textAlign: 'center', marginBottom: 28 }}>
+      <Text style={{ color: '#A3A3A3', fontSize: 14, textAlign: 'center', marginBottom: 28 }}>
         Collect memories and moments in a beautiful album
       </Text>
       <Pressable
@@ -297,6 +298,8 @@ function EmptyState() {
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
+
+const WALL_GRADIENT = ['#2E2E2E', '#222222'] as const;
 
 const COLUMN_COUNT = 3;
 const COLUMN_GAP = 14;
@@ -345,7 +348,7 @@ function WoodGrain({ seed }: { seed: number }) {
       d += ` C ${x1} ${y1} ${x2} ${y2} ${x3} ${y3}`;
     }
     lines.push(
-      <Path key={li} d={d} stroke="#475569" strokeWidth={sw} strokeOpacity={op} fill="none" />,
+      <Path key={li} d={d} stroke="#8B8B8B" strokeWidth={sw} strokeOpacity={op} fill="none" />,
     );
     y += 2.5 + sr(b + 6) * 4.5 + sw;
     li++;
@@ -361,51 +364,16 @@ function WoodGrain({ seed }: { seed: number }) {
 
 function TopShelf() {
   return (
-    <View
-      style={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 10,
-        marginTop: 2,
-        marginBottom: 0,
-        marginHorizontal: -CONTENT_PADDING,
-      }}
-    >
-      <View
-        style={{
-          height: 18,
-          backgroundColor: '#0F172A',
-          borderBottomWidth: 1,
-          borderBottomColor: '#0F172A',
-        }}
-      />
+    <View style={{ marginTop: 2, marginBottom: 0, marginHorizontal: -CONTENT_PADDING }}>
+      <View style={{ height: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.3)' }} />
     </View>
   );
 }
 
 function Bookshelf() {
   return (
-    <View
-      style={{
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 10,
-        marginBottom: 0,
-        marginHorizontal: -CONTENT_PADDING,
-      }}
-    >
-      <View
-        style={{
-          height: 18,
-          backgroundColor: '#0F172A',
-          borderTopWidth: 1,
-          borderTopColor: '#475569',
-        }}
-      />
+    <View style={{ marginBottom: 0, marginHorizontal: -CONTENT_PADDING }}>
+      <View style={{ height: 18, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }} />
     </View>
   );
 }
@@ -497,35 +465,21 @@ export default function AlbumsScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
-      {/* Left wall */}
-      <View
+    <LinearGradient colors={WALL_GRADIENT} style={{ flex: 1 }}>
+      {/* Left wall — same gradient masks any scrolling content bleed at edges */}
+      <LinearGradient
+        colors={WALL_GRADIENT}
         pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: H_PADDING,
-          backgroundColor: '#0F172A',
-          zIndex: 1,
-        }}
+        style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: H_PADDING, zIndex: 1 }}
       />
       {/* Right wall */}
-      <View
+      <LinearGradient
+        colors={WALL_GRADIENT}
         pointerEvents="none"
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: H_PADDING,
-          backgroundColor: '#0F172A',
-          zIndex: 1,
-        }}
+        style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: H_PADDING, zIndex: 1 }}
       />
       <ScrollView
-        style={{ flex: 1, backgroundColor: '#0F172A' }}
+        style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top + 16,
           paddingBottom: insets.bottom + 100,
@@ -553,12 +507,12 @@ export default function AlbumsScreen() {
         >
           <View>
             <Text
-              style={{ fontSize: 26, fontWeight: '800', color: '#F1F5F9', letterSpacing: -0.5 }}
+              style={{ fontSize: 26, fontWeight: '800', color: '#F5F5F5', letterSpacing: -0.5 }}
             >
               My Albums
             </Text>
             {albums.length > 0 && (
-              <Text style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>
+              <Text style={{ fontSize: 13, color: '#A3A3A3', marginTop: 2 }}>
                 {albums.length} {albums.length === 1 ? 'album' : 'albums'}
               </Text>
             )}
@@ -602,11 +556,16 @@ export default function AlbumsScreen() {
                       paddingHorizontal: CONTENT_PADDING,
                       paddingTop: 24,
                       paddingBottom: 0,
-                      backgroundColor: '#090E20',
+                      backgroundColor: '#1C1C1C',
                       overflow: 'hidden',
                     }}
                   >
                     <WoodGrain seed={seedIdx} />
+                    <LinearGradient
+                      colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0)']}
+                      style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40 }}
+                      pointerEvents="none"
+                    />
                     {content}
                   </View>
                   <Bookshelf />
@@ -663,6 +622,6 @@ export default function AlbumsScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }

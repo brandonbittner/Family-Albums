@@ -42,25 +42,25 @@ export default function CreateAlbumScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-slate-900"
+      className="flex-1 bg-neutral-800"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View className="flex-1" style={{ paddingTop: insets.top }}>
         {/* Header */}
-        <View className="flex-row items-center px-4 h-14 border-b border-slate-800">
+        <View className="flex-row items-center px-4 h-14 border-b border-neutral-700">
           <Pressable onPress={() => router.back()} hitSlop={12} className="mr-3">
             <ArrowLeft size={22} color="#94A3B8" />
           </Pressable>
-          <Text className="text-slate-100 text-lg font-semibold">New Album</Text>
+          <Text className="text-neutral-100 text-lg font-semibold">New Album</Text>
         </View>
 
         {/* Fields */}
         <View className="flex-1 px-4 pt-6">
-          <Text className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-2">
+          <Text className="text-neutral-400 text-xs font-semibold uppercase tracking-widest mb-2">
             Title <Text className="text-blue-400">*</Text>
           </Text>
           <TextInput
-            className="bg-slate-800 text-slate-100 rounded-2xl px-4 py-3.5 text-base mb-6 border border-slate-700"
+            className="bg-neutral-700 text-neutral-100 rounded-2xl px-4 py-3.5 text-base mb-6 border border-neutral-600"
             placeholder="e.g. Summer 2026"
             placeholderTextColor="#475569"
             value={title}
@@ -70,11 +70,11 @@ export default function CreateAlbumScreen() {
             editable={!loading}
           />
 
-          <Text className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-2">
+          <Text className="text-neutral-400 text-xs font-semibold uppercase tracking-widest mb-2">
             Description
           </Text>
           <TextInput
-            className="bg-slate-800 text-slate-100 rounded-2xl px-4 py-3.5 text-base border border-slate-700"
+            className="bg-neutral-700 text-neutral-100 rounded-2xl px-4 py-3.5 text-base border border-neutral-600"
             placeholder="Optional"
             placeholderTextColor="#475569"
             value={description}
@@ -91,13 +91,13 @@ export default function CreateAlbumScreen() {
         <View className="px-4" style={{ paddingBottom: insets.bottom + 16 }}>
           <Pressable
             className="rounded-2xl py-4 items-center"
-            style={{ backgroundColor: canSubmit && !loading ? '#3B82F6' : '#1E293B' }}
+            style={{ backgroundColor: canSubmit && !loading ? '#3B82F6' : '#404040' }}
             onPress={handleCreate}
             disabled={!canSubmit || loading}
           >
             <Text
               className="font-semibold text-base"
-              style={{ color: canSubmit && !loading ? 'white' : '#475569' }}
+              style={{ color: canSubmit && !loading ? 'white' : '#525252' }}
             >
               {loading ? 'Creating…' : 'Create Album'}
             </Text>
