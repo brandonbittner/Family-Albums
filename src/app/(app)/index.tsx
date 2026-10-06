@@ -205,10 +205,10 @@ function BookCover({ album, photoUrls }: { album: Album; photoUrls: string[] }) 
         flex: 1,
         borderRadius: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.18,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOffset: { width: 2, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 4,
+        elevation: 10,
       }}
     >
       <View style={{ flex: 1, flexDirection: 'row', borderRadius: 5, overflow: 'hidden' }}>
@@ -319,11 +319,11 @@ function TopShelf() {
     <View
       style={{
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 10,
-        marginTop: 16,
+        marginTop: 2,
         marginBottom: 0,
         marginHorizontal: -CONTENT_PADDING,
       }}
@@ -333,7 +333,7 @@ function TopShelf() {
           height: 18,
           backgroundColor: '#F8FAFC',
           borderBottomWidth: 1,
-          borderBottomColor: '#E2E8F0',
+          borderBottomColor: '#D4DCE8',
         }}
       />
     </View>
@@ -346,7 +346,7 @@ function Bookshelf() {
       style={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
+        shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 10,
         marginBottom: 0,
@@ -503,7 +503,7 @@ export default function AlbumsScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: 24,
+            marginBottom: 4,
           }}
         >
           <View>
@@ -557,7 +557,7 @@ export default function AlbumsScreen() {
                       paddingHorizontal: CONTENT_PADDING,
                       paddingTop: 24,
                       paddingBottom: 0,
-                      backgroundColor: '#E2E8F0',
+                      backgroundColor: '#D4DCE8',
                     }}
                   >
                     {content}
