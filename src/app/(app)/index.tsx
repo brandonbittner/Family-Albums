@@ -1,7 +1,8 @@
 import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { Plus } from 'lucide-react-native';
+import { Plus, Search } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,7 +29,10 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
     <View
       style={{
         flex: 1,
-        borderRadius: 4,
+        borderTopLeftRadius: 4,
+        borderTopRightRadius: 4,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
         overflow: 'hidden',
         backgroundColor: '#FFFFFF',
         shadowColor: '#000',
@@ -53,6 +57,11 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
       >
         {album.title}
       </Text>
+      <LinearGradient
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)']}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32 }}
+        pointerEvents="none"
+      />
     </View>
   );
 }
@@ -115,7 +124,7 @@ function EmptyState() {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-const WALL_GRADIENT = ['#2E2E2E', '#222222'] as const;
+const WALL_GRADIENT = ['#1E1E1E', '#111111'] as const;
 
 const COLUMN_COUNT = 3;
 const COLUMN_GAP = 14;
@@ -295,10 +304,83 @@ export default function AlbumsScreen() {
         pointerEvents="none"
         style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: H_PADDING, zIndex: 1 }}
       />
+      {/* Floating top nav */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: insets.top + 10,
+          left: 20,
+          right: 20,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 10,
+        }}
+      >
+        {/* Search */}
+        <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.15)',
+            }}
+          >
+            <BlurView
+              intensity={20}
+              tint="systemUltraThinMaterialDark"
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <View
+                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
+              />
+              <Search size={18} color="#F5F5F5" />
+            </BlurView>
+          </View>
+        </Pressable>
+
+        {/* Profile avatar */}
+        <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              overflow: 'hidden',
+              borderWidth: 1.5,
+              borderColor: 'rgba(255,255,255,0.25)',
+            }}
+          >
+            <Image
+              // TODO: replace with real signed avatar URL from user profile
+              source={require('../../../assets/images/avatar.jpeg')}
+              style={{ width: '100%', height: '100%' }}
+              contentFit="cover"
+            />
+          </View>
+        </Pressable>
+      </View>
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: insets.top + 10 + 44 + 10,
+          left: 0,
+          right: 0,
+          height: 1,
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          zIndex: 10,
+        }}
+      />
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: insets.top + 16,
+          paddingTop: insets.top + 70,
           paddingBottom: insets.bottom + 100,
           paddingHorizontal: CONTENT_PADDING,
         }}
@@ -320,6 +402,8 @@ export default function AlbumsScreen() {
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: 4,
+            marginTop: 6,
+            marginHorizontal: -(CONTENT_PADDING - 20),
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -412,7 +496,7 @@ export default function AlbumsScreen() {
                       paddingHorizontal: CONTENT_PADDING,
                       paddingTop: 24,
                       paddingBottom: 0,
-                      backgroundColor: '#1C1C1C',
+                      backgroundColor: '#0A0A0A',
                       overflow: 'hidden',
                     }}
                   >
