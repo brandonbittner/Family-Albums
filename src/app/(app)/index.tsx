@@ -31,8 +31,8 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
     <View
       style={{
         flex: 1,
-        borderTopLeftRadius: 4,
-        borderTopRightRadius: 4,
+        borderTopLeftRadius: 2,
+        borderTopRightRadius: 2,
         borderBottomLeftRadius: 0,
         borderBottomRightRadius: 0,
         overflow: 'hidden',
@@ -68,7 +68,7 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
           'rgba(255,255,255,0.13)',
           'rgba(255,255,255,0)',
         ]}
-        locations={[0, 0.2, 0.42, 0.68, 1.0]}
+        locations={[0, 0.15, 0.3, 0.5, 0.75]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{ position: 'absolute', top: 0, left: 5, bottom: 0, width: 26 }}
@@ -152,7 +152,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const ITEM_WIDTH =
   (SCREEN_WIDTH - CONTENT_PADDING * 2 - COLUMN_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT;
-const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
+const ITEM_HEIGHT = ITEM_WIDTH * 1.3;
 const ROW_SECTION_HEIGHT = 24 + ITEM_HEIGHT + 19; // paddingTop + books + shelf
 const GRAIN_HEIGHT = Math.round(24 + ITEM_HEIGHT);
 const MIN_ROWS = Math.ceil(Dimensions.get('window').height / ROW_SECTION_HEIGHT) + 2;
@@ -594,7 +594,8 @@ export default function AlbumsScreen() {
                             {({ pressed }) => (
                               <View
                                 style={{
-                                  aspectRatio: 2 / 3,
+                                  width: ITEM_WIDTH,
+                                  height: ITEM_HEIGHT,
                                   transform: [{ scale: pressed ? 0.95 : 1 }],
                                   opacity: pressed ? 0.9 : 1,
                                 }}
