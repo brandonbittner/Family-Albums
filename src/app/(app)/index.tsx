@@ -2,15 +2,17 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { Plus, Search } from 'lucide-react-native';
+import { Plus, Search, X } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import {
+  Animated,
   ActivityIndicator,
   Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +59,22 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
       >
         {album.title}
       </Text>
+      {/* Spine: gap → dark crease → soft light catch → transparent */}
+      <LinearGradient
+        colors={[
+          'rgba(0,0,0,0)',
+          'rgba(0,0,0,0.22)',
+          'rgba(0,0,0,0)',
+          'rgba(255,255,255,0.13)',
+          'rgba(255,255,255,0)',
+        ]}
+        locations={[0, 0.2, 0.42, 0.68, 1.0]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{ position: 'absolute', top: 0, left: 5, bottom: 0, width: 26 }}
+        pointerEvents="none"
+      />
+      {/* Bottom shadow */}
       <LinearGradient
         colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)']}
         style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32 }}
@@ -212,6 +230,33 @@ export default function AlbumsScreen() {
   const [scrollEnabled, setScrollEnabled] = useState(false);
   const containerHRef = useRef(0);
 
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const searchWidth = useRef(new Animated.Value(44)).current;
+  const avatarOpacity = useRef(new Animated.Value(1)).current;
+  const searchInputRef = useRef<TextInput>(null);
+
+  const openSearch = () => {
+    setSearchActive(true);
+    Animated.parallel([
+      Animated.timing(searchWidth, {
+        toValue: SCREEN_WIDTH - 40,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(avatarOpacity, { toValue: 0, duration: 150, useNativeDriver: false }),
+    ]).start(() => searchInputRef.current?.focus());
+  };
+
+  const closeSearch = () => {
+    searchInputRef.current?.blur();
+    setSearchText('');
+    Animated.parallel([
+      Animated.timing(searchWidth, { toValue: 44, duration: 200, useNativeDriver: false }),
+      Animated.timing(avatarOpacity, { toValue: 1, duration: 200, useNativeDriver: false }),
+    ]).start(() => setSearchActive(false));
+  };
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -309,7 +354,7 @@ export default function AlbumsScreen() {
         pointerEvents="box-none"
         style={{
           position: 'absolute',
-          top: insets.top + 10,
+          top: insets.top + 2,
           left: 20,
           right: 20,
           flexDirection: 'row',
@@ -319,56 +364,74 @@ export default function AlbumsScreen() {
         }}
       >
         {/* Search */}
-        <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              overflow: 'hidden',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.15)',
-            }}
+        <Animated.View
+          style={{
+            width: searchWidth,
+            height: 44,
+            borderRadius: 22,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.15)',
+          }}
+        >
+          <BlurView
+            intensity={20}
+            tint="systemUltraThinMaterialDark"
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13 }}
           >
-            <BlurView
-              intensity={20}
-              tint="systemUltraThinMaterialDark"
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <View
-                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
-              />
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
+            />
+            <Pressable onPress={openSearch} hitSlop={8}>
               <Search size={18} color="#F5F5F5" />
-            </BlurView>
-          </View>
-        </Pressable>
+            </Pressable>
+            {searchActive && (
+              <>
+                <TextInput
+                  ref={searchInputRef}
+                  value={searchText}
+                  onChangeText={setSearchText}
+                  placeholder="Search albums…"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  style={{ flex: 1, color: '#F5F5F5', fontSize: 15, marginLeft: 8 }}
+                  autoCorrect={false}
+                />
+                <Pressable onPress={closeSearch} hitSlop={8}>
+                  <X size={18} color="#F5F5F5" />
+                </Pressable>
+              </>
+            )}
+          </BlurView>
+        </Animated.View>
 
         {/* Profile avatar */}
-        <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              overflow: 'hidden',
-              borderWidth: 1.5,
-              borderColor: 'rgba(255,255,255,0.25)',
-            }}
-          >
-            <Image
-              // TODO: replace with real signed avatar URL from user profile
-              source={require('../../../assets/images/avatar.jpeg')}
-              style={{ width: '100%', height: '100%' }}
-              contentFit="cover"
-            />
-          </View>
-        </Pressable>
+        <Animated.View style={{ opacity: avatarOpacity }}>
+          <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                overflow: 'hidden',
+                borderWidth: 1.5,
+                borderColor: 'rgba(255,255,255,0.25)',
+              }}
+            >
+              <Image
+                // TODO: replace with real signed avatar URL from user profile
+                source={require('../../../assets/images/avatar.jpeg')}
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+              />
+            </View>
+          </Pressable>
+        </Animated.View>
       </View>
       <View
         pointerEvents="none"
         style={{
           position: 'absolute',
-          top: insets.top + 10 + 44 + 10,
+          top: insets.top + 2 + 44 + 18,
           left: 0,
           right: 0,
           height: 1,
@@ -402,7 +465,7 @@ export default function AlbumsScreen() {
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: 4,
-            marginTop: 6,
+            marginTop: 16,
             marginHorizontal: -(CONTENT_PADDING - 20),
           }}
         >
