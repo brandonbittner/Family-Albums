@@ -262,9 +262,9 @@ export default function AlbumScreen() {
   // ── Layout constants ────────────────────────────────────────────────────────
   const COVER_WIDTH = 160;
   const COVER_HEIGHT = Math.round(COVER_WIDTH * 1.3);
-  const SHELF_HEIGHT = 80;
-  // Pull the cover up so its top sits 16px below the safe area
-  const COVER_MARGIN_TOP = -(SHELF_HEIGHT - 16);
+  // Shelf line sits 75% of the way down the book cover
+  const SHELF_HEIGHT = Math.round(COVER_HEIGHT * 0.75) + 16;
+  const COVER_MARGIN_TOP = -Math.round(COVER_HEIGHT * 0.75);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
