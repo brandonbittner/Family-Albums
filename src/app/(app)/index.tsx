@@ -170,6 +170,7 @@ function sr(seed: number): number {
   return x - Math.floor(x);
 }
 
+// TODO: replace with proper wood grain SVG assets for better visual quality and performance
 function WoodGrain({ seed }: { seed: number }) {
   const lines: React.ReactElement[] = [];
   let y = 2;
@@ -178,7 +179,7 @@ function WoodGrain({ seed }: { seed: number }) {
     const b = seed * 1000 + li * 37;
     const amp = 1 + sr(b) * 3.5;
     const sw = 0.25 + sr(b + 1) * 0.8;
-    const op = 0.03 + sr(b + 2) * 0.09;
+    const op = 0.03 + sr(b + 2) * 0.12;
     const segs = 10;
     const segW = SCREEN_WIDTH / segs;
     let d = `M 0 ${y.toFixed(2)}`;
