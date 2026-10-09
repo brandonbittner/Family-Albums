@@ -328,15 +328,14 @@ export default function AlbumScreen() {
             style={{
               width: COVER_WIDTH,
               height: COVER_HEIGHT,
-              borderTopLeftRadius: 2,
-              borderTopRightRadius: 2,
+              borderRadius: 2,
               overflow: 'hidden',
               backgroundColor: '#FFFFFF',
               shadowColor: '#000',
-              shadowOffset: { width: 4, height: 8 },
-              shadowOpacity: 0.5,
-              shadowRadius: 12,
-              elevation: 12,
+              shadowOffset: { width: 36, height: 20 },
+              shadowOpacity: 0.8,
+              shadowRadius: 32,
+              elevation: 32,
             }}
           >
             <View style={{ flex: 1, padding: 12, justifyContent: 'center', alignItems: 'center' }}>
