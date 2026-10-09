@@ -118,6 +118,7 @@ export type Database = {
         Row: {
           created_at: string;
           deleted_at: string | null;
+          dominant_colors: string[] | null;
           duration_seconds: number | null;
           file_size_bytes: number;
           height: number;
@@ -133,6 +134,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           deleted_at?: string | null;
+          dominant_colors?: string[] | null;
           duration_seconds?: number | null;
           file_size_bytes: number;
           height: number;
@@ -148,6 +150,7 @@ export type Database = {
         Update: {
           created_at?: string;
           deleted_at?: string | null;
+          dominant_colors?: string[] | null;
           duration_seconds?: number | null;
           file_size_bytes?: number;
           height?: number;

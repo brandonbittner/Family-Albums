@@ -4,6 +4,8 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { LinearGradient } from 'expo-linear-gradient';
+import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
+import { extractDominantColors } from '@/lib/color-extract';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Upload } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
@@ -175,6 +177,16 @@ export default function AlbumScreen() {
 
     if (result.canceled || result.assets.length === 0) return;
 
+    // Check if the album currently has no artifacts so we know whether the
+    // first item in this batch will become the first-ordered image.
+    // TODO: when users can select cover images, run color extraction only for
+    //       the designated cover artifact instead of the first uploaded image.
+    const { count: existingCount } = await supabase
+      .from('album_artifacts')
+      .select('*', { count: 'exact', head: true })
+      .eq('album_id', id);
+    const isFirstInAlbum = (existingCount ?? 0) === 0;
+
     setUploadProgress({ current: 0, total: result.assets.length });
     let failed = 0;
 
@@ -232,8 +244,23 @@ export default function AlbumScreen() {
         }
 
         await uploadArtifact(artifactId, uploadFiles);
+
+        // Extract dominant colors from the local thumb for the first image in
+        // the album — used to seed the mesh gradient on the album detail screen.
+        const thumbUri = uploadFiles.find((f) => f.variant === 'thumb')?.localUri;
+        const dominantColors =
+          i === 0 && isFirstInAlbum && thumbUri
+            ? await extractDominantColors(thumbUri, 5).catch(() => null)
+            : null;
+
         await Promise.all([
-          supabase.from('artifacts').update({ status: 'ready' }).eq('id', artifactId),
+          supabase
+            .from('artifacts')
+            .update({
+              status: 'ready',
+              ...(dominantColors ? { dominant_colors: dominantColors } : {}),
+            })
+            .eq('id', artifactId),
           supabase.from('album_artifacts').insert({
             album_id: id,
             artifact_id: artifactId,
@@ -276,7 +303,11 @@ export default function AlbumScreen() {
       >
         {/* ── Shelf header ── */}
         <View style={{ height: insets.top + SHELF_HEIGHT }}>
-          <LinearGradient colors={['#1E1E1E', '#111111']} style={StyleSheet.absoluteFill} />
+          <MeshGradient
+            seed={id}
+            colors={artifacts[0]?.dominant_colors ?? ALBUM_COLORS}
+            style={StyleSheet.absoluteFill}
+          />
           {/* Shelf line */}
           <View
             style={[StyleSheet.absoluteFill, styles.shelfLine, { top: undefined, bottom: 0 }]}
