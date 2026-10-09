@@ -260,7 +260,7 @@ export default function AlbumScreen() {
   const uploading = uploadProgress !== null;
 
   // ── Layout constants ────────────────────────────────────────────────────────
-  const COVER_WIDTH = 160;
+  const COVER_WIDTH = 225;
   const COVER_HEIGHT = Math.round(COVER_WIDTH * 1.3);
   // Shelf line sits 75% of the way down the book cover
   const SHELF_HEIGHT = Math.round(COVER_HEIGHT * 0.75) + 16;
