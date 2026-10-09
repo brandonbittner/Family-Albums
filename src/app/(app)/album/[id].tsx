@@ -385,12 +385,12 @@ export default function AlbumScreen() {
           ) : (
             <>
               <Text
-                style={{ color: '#F5F5F5', fontSize: 22, fontWeight: '700', textAlign: 'center' }}
+                style={{ color: '#F5F5F5', fontSize: 32, fontWeight: '700', textAlign: 'center' }}
               >
                 {album?.title}
               </Text>
               {album?.description ? (
-                <Text style={{ color: '#A3A3A3', fontSize: 15, textAlign: 'center', marginTop: 6 }}>
+                <Text style={{ color: '#A3A3A3', fontSize: 16, textAlign: 'center', marginTop: 6 }}>
                   {album.description}
                 </Text>
               ) : null}
