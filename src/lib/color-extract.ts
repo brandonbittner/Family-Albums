@@ -52,7 +52,7 @@ function medianCut(pixels: RGB[], depth: number): RGB[] {
   return [...medianCut(a, depth - 1), ...medianCut(b, depth - 1)];
 }
 
-// ── Color filtering ───────────────────────────────────────────────────────────
+// ── Color filtering & selection ───────────────────────────────────────────────
 
 function saturation({ r, g, b }: RGB): number {
   const max = Math.max(r, g, b) / 255;
@@ -63,6 +63,53 @@ function saturation({ r, g, b }: RGB): number {
 
 function luminance({ r, g, b }: RGB): number {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+function toHue({ r, g, b }: RGB): number {
+  const rn = r / 255,
+    gn = g / 255,
+    bn = b / 255;
+  const max = Math.max(rn, gn, bn),
+    min = Math.min(rn, gn, bn);
+  if (max === min) return 0;
+  const d = max - min;
+  let h = 0;
+  if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0);
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  return h * 60; // 0–360
+}
+
+function hueDistance(a: RGB, b: RGB): number {
+  const diff = Math.abs(toHue(a) - toHue(b));
+  return Math.min(diff, 360 - diff); // circular
+}
+
+/**
+ * Greedy farthest-point sampling: pick the most-saturated color first, then
+ * always pick the candidate whose hue is maximally far from every already-
+ * selected color. This spreads the palette across the hue wheel even when the
+ * image is dominated by a single color family.
+ */
+function diversePalette(candidates: RGB[], count: number): RGB[] {
+  if (candidates.length === 0) return [];
+  const selected: RGB[] = [candidates[0]];
+  const remaining = candidates.slice(1);
+
+  while (selected.length < count && remaining.length > 0) {
+    let bestIdx = 0,
+      bestDist = -1;
+    for (let i = 0; i < remaining.length; i++) {
+      const minDist = Math.min(...selected.map((s) => hueDistance(remaining[i], s)));
+      if (minDist > bestDist) {
+        bestDist = minDist;
+        bestIdx = i;
+      }
+    }
+    selected.push(remaining.splice(bestIdx, 1)[0]);
+  }
+
+  return selected;
 }
 
 function toHex({ r, g, b }: RGB): string {
@@ -106,12 +153,12 @@ export async function extractDominantColors(localUri: string, count: number): Pr
 
   if (samples.length < 4) return [];
 
-  // Median-cut: depth=3 → 2^3=8 buckets, then take `count` richest
-  const depth = 3;
-  const palette = medianCut(samples, depth);
+  // Median-cut: depth=4 → 2^4=16 buckets for more candidate variety
+  const palette = medianCut(samples, 4);
 
-  return palette
-    .sort((a, b) => saturation(b) - saturation(a))
-    .slice(0, count)
-    .map(toHex);
+  // Sort by saturation so the richest colors are tried first, then use
+  // farthest-point hue sampling to ensure the final selection spans the
+  // color wheel rather than clustering around one dominant hue.
+  const sorted = palette.sort((a, b) => saturation(b) - saturation(a));
+  return diversePalette(sorted, count).map(toHex);
 }
