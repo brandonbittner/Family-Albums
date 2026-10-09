@@ -3,10 +3,20 @@ import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Upload } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -138,8 +148,8 @@ export default function AlbumScreen() {
         for (const { artifactId, url } of signed) {
           urlMap[artifactId] = url;
         }
-      } catch {
-        // URLs are best-effort; images just won't load
+      } catch (e) {
+        console.error('[AlbumScreen] getArtifactUrls failed:', e);
       }
     }
 
@@ -249,99 +259,191 @@ export default function AlbumScreen() {
 
   const uploading = uploadProgress !== null;
 
+  // ── Layout constants ────────────────────────────────────────────────────────
+  const COVER_WIDTH = 160;
+  const COVER_HEIGHT = Math.round(COVER_WIDTH * 1.3);
+  const SHELF_HEIGHT = 80;
+  // Pull the cover up so its top sits 16px below the safe area
+  const COVER_MARGIN_TOP = -(SHELF_HEIGHT - 16);
+
   // ── Render ─────────────────────────────────────────────────────────────────
-
-  const renderItem = ({ item, index }: { item: GridItem; index: number }) => (
-    <Pressable
-      className="active:opacity-80"
-      style={{
-        flex: 1,
-        marginLeft: index % 2 === 1 ? 2 : 0,
-        marginRight: index % 2 === 0 ? 2 : 0,
-        marginBottom: 4,
-      }}
-      onPress={() =>
-        router.push({
-          pathname: '/(app)/album/artifact',
-          params: {
-            artifactId: item.id,
-            mediaType: item.media_type,
-            contentType: item.original_content_type,
-          },
-        })
-      }
-    >
-      <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#404040' }}>
-        <Image
-          source={item.url ? { uri: item.url } : undefined}
-          style={{ width: '100%', height: '100%' }}
-          contentFit="cover"
-          transition={200}
-        />
-      </View>
-    </Pressable>
-  );
-
-  const ListHeader = () => (
-    <View className="mb-5">
-      {albumLoading ? (
-        <ActivityIndicator color="#a1a1aa" />
-      ) : (
-        <>
-          <Text className="text-neutral-100 text-2xl font-bold">{album?.title}</Text>
-          {album?.description ? (
-            <Text className="text-neutral-400 text-base mt-1.5">{album.description}</Text>
-          ) : null}
-        </>
-      )}
-    </View>
-  );
-
-  const ListEmpty = () =>
-    artifactsLoading ? (
-      <ActivityIndicator color="#a1a1aa" className="mt-12" />
-    ) : (
-      <View className="items-center mt-16">
-        <Text className="text-neutral-500 text-base">No photos yet</Text>
-        <Text className="text-neutral-500 text-sm mt-1">Tap the button below to add some</Text>
-      </View>
-    );
-
   return (
-    <View className="flex-1 bg-neutral-800" style={{ paddingTop: insets.top }}>
-      {/* Header */}
-      <View className="flex-row items-center px-4 h-14 border-b border-neutral-700">
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <ArrowLeft size={22} color="#A3A3A3" />
-        </Pressable>
-      </View>
+    <View style={styles.root}>
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
+        {/* ── Shelf header ── */}
+        <View style={{ height: insets.top + SHELF_HEIGHT }}>
+          <LinearGradient colors={['#1E1E1E', '#111111']} style={StyleSheet.absoluteFill} />
+          {/* Shelf line */}
+          <View
+            style={[StyleSheet.absoluteFill, styles.shelfLine, { top: undefined, bottom: 0 }]}
+          />
+          {/* Back button */}
+          <Pressable
+            style={{ position: 'absolute', top: insets.top + 8, left: 16 }}
+            onPress={() => router.back()}
+            hitSlop={12}
+          >
+            <ArrowLeft size={22} color="#A3A3A3" />
+          </Pressable>
+        </View>
 
-      <FlatList
-        data={artifacts}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: insets.bottom + 100,
-        }}
-      />
+        {/* ── Book cover (overlaps shelf) ── */}
+        <View style={{ alignItems: 'center', marginTop: COVER_MARGIN_TOP }}>
+          <View
+            style={{
+              width: COVER_WIDTH,
+              height: COVER_HEIGHT,
+              borderTopLeftRadius: 2,
+              borderTopRightRadius: 2,
+              overflow: 'hidden',
+              backgroundColor: '#FFFFFF',
+              shadowColor: '#000',
+              shadowOffset: { width: 4, height: 8 },
+              shadowOpacity: 0.5,
+              shadowRadius: 12,
+              elevation: 12,
+            }}
+          >
+            <View style={{ flex: 1, padding: 12, justifyContent: 'center', alignItems: 'center' }}>
+              <Text
+                style={{
+                  color: '#1A1A1A',
+                  fontSize: 15,
+                  fontWeight: '600',
+                  textAlign: 'center',
+                  lineHeight: 20,
+                }}
+                numberOfLines={5}
+              >
+                {album?.title}
+              </Text>
+            </View>
+            {/* Spine */}
+            <LinearGradient
+              colors={[
+                'rgba(0,0,0,0)',
+                'rgba(0,0,0,0.22)',
+                'rgba(0,0,0,0)',
+                'rgba(255,255,255,0.13)',
+                'rgba(255,255,255,0)',
+              ]}
+              locations={[0, 0.15, 0.3, 0.5, 0.75]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ position: 'absolute', top: 0, left: 5, bottom: 0, width: 26 }}
+              pointerEvents="none"
+            />
+            {/* Bottom shadow */}
+            <LinearGradient
+              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)']}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32 }}
+              pointerEvents="none"
+            />
+          </View>
+        </View>
 
-      {/* Upload progress bar */}
-      {uploading && uploadProgress && (
+        {/* ── Title & description ── */}
         <View
-          className="absolute bottom-0 left-0 right-0 bg-neutral-800 border-t border-neutral-700 px-6 py-4"
-          style={{ paddingBottom: insets.bottom + 16 }}
+          style={{ alignItems: 'center', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 28 }}
         >
-          <Text className="text-neutral-100 text-sm font-medium mb-2">
+          {albumLoading ? (
+            <ActivityIndicator color="#A3A3A3" />
+          ) : (
+            <>
+              <Text
+                style={{ color: '#F5F5F5', fontSize: 22, fontWeight: '700', textAlign: 'center' }}
+              >
+                {album?.title}
+              </Text>
+              {album?.description ? (
+                <Text style={{ color: '#A3A3A3', fontSize: 15, textAlign: 'center', marginTop: 6 }}>
+                  {album.description}
+                </Text>
+              ) : null}
+            </>
+          )}
+        </View>
+
+        {/* ── Separator ── */}
+        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+
+        {/* ── Image grid ── */}
+        {artifactsLoading ? (
+          <ActivityIndicator color="#A3A3A3" style={{ marginTop: 60 }} />
+        ) : artifacts.length === 0 ? (
+          <View style={{ alignItems: 'center', marginTop: 60 }}>
+            <Text style={{ color: '#6B7280', fontSize: 15 }}>No photos yet</Text>
+            <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 4 }}>
+              Tap the button below to add some
+            </Text>
+          </View>
+        ) : (
+          // TODO: virtualize grid for large albums
+          <View style={{ gap: 4 }}>
+            {Array.from({ length: Math.ceil(artifacts.length / 3) }, (_, row) => {
+              const rowItems = artifacts.slice(row * 3, row * 3 + 3);
+              const padded = [...rowItems, ...Array<null>(3 - rowItems.length).fill(null)];
+              return (
+                <View key={row} style={{ flexDirection: 'row', gap: 4 }}>
+                  {padded.map((item, col) =>
+                    item ? (
+                      <TouchableOpacity
+                        key={item.id}
+                        activeOpacity={0.8}
+                        style={{
+                          flex: 1,
+                          aspectRatio: 1,
+                          backgroundColor: '#1C1C1E',
+                          borderRadius: 4,
+                          overflow: 'hidden',
+                        }}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/(app)/album/artifact',
+                            params: {
+                              artifactId: item.id,
+                              mediaType: item.media_type,
+                              contentType: item.original_content_type,
+                            },
+                          })
+                        }
+                      >
+                        {item.url ? (
+                          <Image
+                            source={{ uri: item.url }}
+                            style={{ width: '100%', height: '100%' }}
+                            contentFit="cover"
+                            transition={200}
+                          />
+                        ) : null}
+                      </TouchableOpacity>
+                    ) : (
+                      <View key={`empty-${col}`} style={{ flex: 1, aspectRatio: 1 }} />
+                    ),
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Upload progress */}
+      {uploading && uploadProgress && (
+        <View style={[styles.progressBar, { paddingBottom: insets.bottom + 16 }]}>
+          <Text style={{ color: '#F5F5F5', fontSize: 13, fontWeight: '500', marginBottom: 8 }}>
             Uploading {uploadProgress.current} of {uploadProgress.total}…
           </Text>
-          <View className="bg-neutral-600 rounded-full h-1.5">
+          <View style={styles.progressTrack}>
             <View
-              className="bg-blue-500 rounded-full h-1.5"
-              style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+              style={[
+                styles.progressFill,
+                { width: `${(uploadProgress.current / uploadProgress.total) * 100}%` },
+              ]}
             />
           </View>
         </View>
@@ -349,14 +451,38 @@ export default function AlbumScreen() {
 
       {/* Upload FAB */}
       {!uploading && (
-        <Pressable
-          className="absolute right-5 bg-blue-600 rounded-full w-14 h-14 items-center justify-center active:opacity-80"
-          style={{ bottom: insets.bottom + 24 }}
-          onPress={handleUpload}
-        >
+        <Pressable style={[styles.fab, { bottom: insets.bottom + 24 }]} onPress={handleUpload}>
           <Upload size={22} color="white" />
         </Pressable>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0A0A0A' },
+  shelfLine: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  progressBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#141414',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  progressTrack: { height: 4, backgroundColor: '#2A2A2A', borderRadius: 2 },
+  progressFill: { height: 4, backgroundColor: '#3B82F6', borderRadius: 2 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
