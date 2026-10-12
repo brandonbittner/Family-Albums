@@ -287,6 +287,11 @@ export default function AlbumScreen() {
     fetchArtifacts();
   };
 
+  // TODO: add a "Recently Deleted" section on the albums screen where soft-deleted albums can be
+  //       recovered within a grace period (e.g. 30 days) before permanent deletion.
+  // TODO: replace this single delete action with two options — "Delete for Everyone" (removes the
+  //       album for all members) vs "Remove for Me" (hides it only from the current user's view,
+  //       leaving it intact for other members). Distinction matters once shared albums are live.
   const handleDeleteAlbum = () => {
     setMenuOpen(false);
     Alert.alert(
@@ -333,6 +338,7 @@ export default function AlbumScreen() {
           <MeshGradient
             seed={id}
             colors={artifacts[0]?.dominant_colors ?? ALBUM_COLORS}
+            grain={0}
             style={StyleSheet.absoluteFill}
           />
           {/* Shelf line */}
