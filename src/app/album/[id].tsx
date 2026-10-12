@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
 import { extractDominantColors } from '@/lib/color-extract';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MoreVertical, Trash2, Upload } from 'lucide-react-native';
+import { ArrowLeft, MoreVertical, Plus, Trash2 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -368,7 +368,7 @@ export default function AlbumScreen() {
 
           {/* Menu (3-dot) button */}
           <Pressable
-            style={{ position: 'absolute', top: insets.top + 8, right: 68 }}
+            style={{ position: 'absolute', top: insets.top + 8, right: 16 }}
             onPress={() => setMenuOpen(true)}
             hitSlop={8}
           >
@@ -385,28 +385,6 @@ export default function AlbumScreen() {
               </View>
             </View>
           </Pressable>
-
-          {/* Upload button */}
-          {!uploading && (
-            <Pressable
-              style={{ position: 'absolute', top: insets.top + 8, right: 16 }}
-              onPress={handleUpload}
-              hitSlop={8}
-            >
-              <View style={styles.navBtnShadow}>
-                <View style={styles.navBtnClip}>
-                  <BlurView
-                    intensity={40}
-                    tint="systemUltraThinMaterialDark"
-                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
-                    <Upload size={20} color="#FFFFFF" />
-                  </BlurView>
-                </View>
-              </View>
-            </Pressable>
-          )}
         </View>
 
         {/* ── Book cover (overlaps shelf) ── */}
@@ -517,61 +495,111 @@ export default function AlbumScreen() {
         {/* ── Image grid ── */}
         {artifactsLoading ? (
           <ActivityIndicator color="#A3A3A3" style={{ marginTop: 60 }} />
-        ) : artifacts.length === 0 ? (
-          <View style={{ alignItems: 'center', marginTop: 60 }}>
-            <Text style={{ color: '#6B7280', fontSize: 15 }}>No photos yet</Text>
-            <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 4 }}>
-              Tap the button below to add some
-            </Text>
-          </View>
         ) : (
           // TODO: virtualize grid for large albums
-          <View style={{ gap: 4 }}>
-            {Array.from({ length: Math.ceil(artifacts.length / 3) }, (_, row) => {
-              const rowItems = artifacts.slice(row * 3, row * 3 + 3);
-              const padded = [...rowItems, ...Array<null>(3 - rowItems.length).fill(null)];
-              return (
-                <View key={row} style={{ flexDirection: 'row', gap: 4 }}>
-                  {padded.map((item, col) =>
-                    item ? (
-                      <TouchableOpacity
-                        key={item.id}
-                        activeOpacity={0.8}
-                        style={{
-                          flex: 1,
-                          aspectRatio: 1,
-                          backgroundColor: '#1C1C1E',
-                          borderRadius: 4,
-                          overflow: 'hidden',
-                        }}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/album/artifact',
-                            params: {
-                              artifactId: item.id,
-                              mediaType: item.media_type,
-                              contentType: item.original_content_type,
-                            },
-                          })
+          (() => {
+            const allItems: (GridItem | 'upload')[] = ['upload', ...artifacts];
+            return (
+              <View style={{ gap: 6 }}>
+                {Array.from({ length: Math.ceil(allItems.length / 3) }, (_, row) => {
+                  const rowItems = allItems.slice(row * 3, row * 3 + 3);
+                  const padded: (GridItem | 'upload' | null)[] = [
+                    ...rowItems,
+                    ...Array<null>(3 - rowItems.length).fill(null),
+                  ];
+                  return (
+                    <View key={row} style={{ flexDirection: 'row', gap: 6 }}>
+                      {padded.map((item, col) => {
+                        if (item === 'upload') {
+                          return (
+                            <Pressable
+                              key="upload"
+                              disabled={uploading}
+                              onPress={handleUpload}
+                              style={{
+                                flex: 1,
+                                aspectRatio: 1,
+                                borderRadius: 4,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                              }}
+                            >
+                              <View
+                                pointerEvents="none"
+                                style={{
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  borderWidth: 1.5,
+                                  borderColor: '#404040',
+                                  borderStyle: 'dashed',
+                                  borderRadius: 4,
+                                }}
+                              />
+                              {uploading ? (
+                                <ActivityIndicator color="#A3A3A3" />
+                              ) : (
+                                <>
+                                  <Plus size={22} color="#A3A3A3" />
+                                  <Text
+                                    style={{
+                                      color: '#A3A3A3',
+                                      fontSize: 14,
+                                      fontWeight: '500',
+                                    }}
+                                  >
+                                    Upload Artifacts
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          );
                         }
-                      >
-                        {item.url ? (
-                          <Image
-                            source={{ uri: item.url }}
-                            style={{ width: '100%', height: '100%' }}
-                            contentFit="cover"
-                            transition={200}
-                          />
-                        ) : null}
-                      </TouchableOpacity>
-                    ) : (
-                      <View key={`empty-${col}`} style={{ flex: 1, aspectRatio: 1 }} />
-                    ),
-                  )}
-                </View>
-              );
-            })}
-          </View>
+                        if (item) {
+                          return (
+                            <TouchableOpacity
+                              key={item.id}
+                              activeOpacity={0.8}
+                              style={{
+                                flex: 1,
+                                aspectRatio: 1,
+                                backgroundColor: '#1C1C1E',
+                                borderRadius: 4,
+                                overflow: 'hidden',
+                              }}
+                              onPress={() =>
+                                router.push({
+                                  pathname: '/album/artifact',
+                                  params: {
+                                    artifactId: item.id,
+                                    mediaType: item.media_type,
+                                    contentType: item.original_content_type,
+                                  },
+                                })
+                              }
+                            >
+                              {item.url ? (
+                                <Image
+                                  source={{ uri: item.url }}
+                                  style={{ width: '100%', height: '100%' }}
+                                  contentFit="cover"
+                                  transition={200}
+                                />
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        }
+                        return <View key={`empty-${col}`} style={{ flex: 1, aspectRatio: 1 }} />;
+                      })}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })()
         )}
       </ScrollView>
 
