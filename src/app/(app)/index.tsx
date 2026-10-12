@@ -26,15 +26,12 @@ type Album = Database['public']['Tables']['albums']['Row'];
 
 // ── Book cover ────────────────────────────────────────────────────────────────
 
-function BookCover({ album }: { album: Album; photoUrls: string[] }) {
+function BookCover({ album, photoUrls }: { album: Album; photoUrls: string[] }) {
   return (
     <View
       style={{
         flex: 1,
-        borderTopLeftRadius: 2,
-        borderTopRightRadius: 2,
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
+        borderRadius: 2,
         overflow: 'hidden',
         backgroundColor: '#FFFFFF',
         shadowColor: '#000',
@@ -42,24 +39,41 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
         shadowOpacity: 0.35,
         shadowRadius: 4,
         elevation: 8,
-        padding: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
+        paddingTop: 8,
+        paddingBottom: 8,
+        paddingLeft: 16,
+        paddingRight: 8,
       }}
     >
+      {/* Title — TODO: font discovery for cover typography (try Playfair Display, Cormorant, etc.) */}
       <Text
         style={{
           color: '#1A1A1A',
-          fontSize: 13,
-          fontWeight: '600',
+          fontSize: 9,
+          fontWeight: '700',
+          lineHeight: 14,
+          marginBottom: 6,
+          marginTop: 2,
           textAlign: 'center',
-          lineHeight: 18,
+          textTransform: 'uppercase',
+          fontFamily: 'Georgia',
+          letterSpacing: 0.5,
         }}
-        numberOfLines={4}
+        numberOfLines={3}
       >
         {album.title}
       </Text>
-      {/* Spine: gap → dark crease → soft light catch → transparent */}
+      {/* Cover image */}
+      <View style={{ flex: 1, borderRadius: 2, overflow: 'hidden', backgroundColor: '#E8E4DF' }}>
+        {photoUrls[0] ? (
+          <Image
+            source={{ uri: photoUrls[0] }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+          />
+        ) : null}
+      </View>
+      {/* Spine */}
       <LinearGradient
         colors={[
           'rgba(0,0,0,0)',
@@ -71,7 +85,7 @@ function BookCover({ album }: { album: Album; photoUrls: string[] }) {
         locations={[0, 0.15, 0.3, 0.5, 0.75]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ position: 'absolute', top: 0, left: 5, bottom: 0, width: 26 }}
+        style={{ position: 'absolute', top: 0, left: 5, bottom: 0, width: 20 }}
         pointerEvents="none"
       />
       {/* Bottom shadow */}

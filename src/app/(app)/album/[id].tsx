@@ -1,3 +1,4 @@
+import { BlurView } from 'expo-blur';
 import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -7,11 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
 import { extractDominantColors } from '@/lib/color-extract';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Upload } from 'lucide-react-native';
+import { ArrowLeft, MoreVertical, Trash2, Upload } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -102,6 +104,7 @@ export default function AlbumScreen() {
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Fetch album metadata once
   useEffect(() => {
@@ -284,13 +287,37 @@ export default function AlbumScreen() {
     fetchArtifacts();
   };
 
+  const handleDeleteAlbum = () => {
+    setMenuOpen(false);
+    Alert.alert(
+      'Delete Album',
+      'This will permanently delete the album. Photos will not be removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase
+              .from('albums')
+              .update({ deleted_at: new Date().toISOString() })
+              .eq('id', id);
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
   const uploading = uploadProgress !== null;
 
   // ── Layout constants ────────────────────────────────────────────────────────
   const COVER_WIDTH = 225;
   const COVER_HEIGHT = Math.round(COVER_WIDTH * 1.3);
-  // Shelf line sits 75% of the way down the book cover
-  const SHELF_HEIGHT = Math.round(COVER_HEIGHT * 0.75) + 16;
+  // Space reserved above the book for the button row (8 top offset + 44 button + 16 gap)
+  const BUTTON_AREA = 68;
+  // Shelf line sits 75% of the way down the book cover; BUTTON_AREA pushes book below buttons
+  const SHELF_HEIGHT = Math.round(COVER_HEIGHT * 0.75) + BUTTON_AREA;
   const COVER_MARGIN_TOP = -Math.round(COVER_HEIGHT * 0.75);
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -316,10 +343,64 @@ export default function AlbumScreen() {
           <Pressable
             style={{ position: 'absolute', top: insets.top + 8, left: 16 }}
             onPress={() => router.back()}
-            hitSlop={12}
+            hitSlop={8}
           >
-            <ArrowLeft size={22} color="#A3A3A3" />
+            {/* Shadow lives here — overflow:hidden would clip it */}
+            <View style={styles.navBtnShadow}>
+              <View style={styles.navBtnClip}>
+                <BlurView
+                  intensity={40}
+                  tint="systemUltraThinMaterialDark"
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
+                  <ArrowLeft size={20} color="#FFFFFF" />
+                </BlurView>
+              </View>
+            </View>
           </Pressable>
+
+          {/* Menu (3-dot) button */}
+          <Pressable
+            style={{ position: 'absolute', top: insets.top + 8, right: 68 }}
+            onPress={() => setMenuOpen(true)}
+            hitSlop={8}
+          >
+            <View style={styles.navBtnShadow}>
+              <View style={styles.navBtnClip}>
+                <BlurView
+                  intensity={40}
+                  tint="systemUltraThinMaterialDark"
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
+                  <MoreVertical size={20} color="#FFFFFF" />
+                </BlurView>
+              </View>
+            </View>
+          </Pressable>
+
+          {/* Upload button */}
+          {!uploading && (
+            <Pressable
+              style={{ position: 'absolute', top: insets.top + 8, right: 16 }}
+              onPress={handleUpload}
+              hitSlop={8}
+            >
+              <View style={styles.navBtnShadow}>
+                <View style={styles.navBtnClip}>
+                  <BlurView
+                    intensity={40}
+                    tint="systemUltraThinMaterialDark"
+                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
+                    <Upload size={20} color="#FFFFFF" />
+                  </BlurView>
+                </View>
+              </View>
+            </Pressable>
+          )}
         </View>
 
         {/* ── Book cover (overlaps shelf) ── */}
@@ -338,19 +419,45 @@ export default function AlbumScreen() {
               elevation: 32,
             }}
           >
-            <View style={{ flex: 1, padding: 12, justifyContent: 'center', alignItems: 'center' }}>
+            <View
+              style={{
+                flex: 1,
+                paddingTop: 12,
+                paddingBottom: 12,
+                paddingLeft: 24,
+                paddingRight: 12,
+              }}
+            >
+              {/* Title — TODO: font discovery for cover typography (try Playfair Display, Cormorant, etc.) */}
               <Text
                 style={{
                   color: '#1A1A1A',
-                  fontSize: 15,
-                  fontWeight: '600',
-                  textAlign: 'center',
+                  fontSize: 14,
+                  fontWeight: '700',
                   lineHeight: 20,
+                  marginBottom: 14,
+                  marginTop: 6,
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  fontFamily: 'Georgia',
+                  letterSpacing: 1,
                 }}
-                numberOfLines={5}
+                numberOfLines={4}
               >
                 {album?.title}
               </Text>
+              {/* Cover image */}
+              <View
+                style={{ flex: 1, borderRadius: 3, overflow: 'hidden', backgroundColor: '#E8E4DF' }}
+              >
+                {artifacts[0]?.url ? (
+                  <Image
+                    source={{ uri: artifacts[0].url }}
+                    style={{ width: '100%', height: '100%' }}
+                    contentFit="cover"
+                  />
+                ) : null}
+              </View>
             </View>
             {/* Spine */}
             <LinearGradient
@@ -462,6 +569,66 @@ export default function AlbumScreen() {
         )}
       </ScrollView>
 
+      {/* Dropdown menu */}
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        {/* Dim overlay */}
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+          onPress={() => setMenuOpen(false)}
+        />
+        {/* Menu card — anchored top-right, slides over the overlay */}
+        <View
+          style={{
+            position: 'absolute',
+            top: insets.top + 64,
+            right: 16,
+            width: 220,
+            borderRadius: 16,
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.5,
+            shadowRadius: 24,
+            elevation: 24,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.08)',
+          }}
+        >
+          <BlurView
+            intensity={60}
+            tint="systemUltraThinMaterialDark"
+            style={{ overflow: 'hidden' }}
+          >
+            <View style={{ backgroundColor: 'rgba(28,28,30,0.7)' }}>
+              {/* Delete action */}
+              <Pressable onPress={handleDeleteAlbum}>
+                {({ pressed }) => (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      backgroundColor: pressed ? 'rgba(239,68,68,0.08)' : 'transparent',
+                    }}
+                  >
+                    <Trash2 size={20} color="#EF4444" />
+                    <Text style={{ color: '#EF4444', fontSize: 16, marginLeft: 14 }}>
+                      Delete Album
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </BlurView>
+        </View>
+      </Modal>
+
       {/* Upload progress */}
       {uploading && uploadProgress && (
         <View style={[styles.progressBar, { paddingBottom: insets.bottom + 16 }]}>
@@ -478,13 +645,6 @@ export default function AlbumScreen() {
           </View>
         </View>
       )}
-
-      {/* Upload FAB */}
-      {!uploading && (
-        <Pressable style={[styles.fab, { bottom: insets.bottom + 24 }]} onPress={handleUpload}>
-          <Upload size={22} color="white" />
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -492,6 +652,25 @@ export default function AlbumScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0A0A0A' },
   shelfLine: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  navBtnShadow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  navBtnClip: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  navBtnOverlay: { backgroundColor: 'rgba(255,255,255,0.14)' },
   progressBar: {
     position: 'absolute',
     bottom: 0,
@@ -505,14 +684,4 @@ const styles = StyleSheet.create({
   },
   progressTrack: { height: 4, backgroundColor: '#2A2A2A', borderRadius: 2 },
   progressFill: { height: 4, backgroundColor: '#3B82F6', borderRadius: 2 },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });
