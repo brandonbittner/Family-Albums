@@ -546,7 +546,7 @@ export default function AlbumScreen() {
                         }}
                         onPress={() =>
                           router.push({
-                            pathname: '/(app)/album/artifact',
+                            pathname: '/album/artifact',
                             params: {
                               artifactId: item.id,
                               mediaType: item.media_type,

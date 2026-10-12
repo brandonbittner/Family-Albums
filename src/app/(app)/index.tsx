@@ -601,7 +601,7 @@ export default function AlbumsScreen() {
                             style={{ width: ITEM_WIDTH }}
                             onPress={() =>
                               router.push({
-                                pathname: '/(app)/album/[id]',
+                                pathname: '/album/[id]',
                                 params: { id: album.id },
                               })
                             }

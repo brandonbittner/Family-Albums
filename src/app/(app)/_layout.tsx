@@ -152,7 +152,6 @@ export default function AppLayout() {
       />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="create-album" options={{ href: null }} />
-      <Tabs.Screen name="album" options={{ href: null }} />
     </Tabs>
   );
 }
