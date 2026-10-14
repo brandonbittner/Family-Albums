@@ -8,7 +8,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
 import { extractDominantColors } from '@/lib/color-extract';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MoreVertical, Plus, Trash2 } from 'lucide-react-native';
+import { setArtifactList } from '@/lib/artifact-store';
+import {
+  ArrowLeft,
+  ImageIcon,
+  MoreVertical,
+  Pencil,
+  Plus,
+  SquarePlay,
+  Trash2,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +27,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -105,6 +115,9 @@ export default function AlbumScreen() {
     null,
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   // Fetch album metadata once
   useEffect(() => {
@@ -287,6 +300,25 @@ export default function AlbumScreen() {
     fetchArtifacts();
   };
 
+  const handleOpenEdit = () => {
+    setEditTitle(album?.title ?? '');
+    setEditDescription(album?.description ?? '');
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    await supabase
+      .from('albums')
+      .update({ title: editTitle.trim(), description: editDescription.trim() || null })
+      .eq('id', id);
+    setAlbum((prev) =>
+      prev
+        ? { ...prev, title: editTitle.trim(), description: editDescription.trim() || null }
+        : prev,
+    );
+    setEditModalOpen(false);
+  };
+
   // TODO: add a "Recently Deleted" section on the albums screen where soft-deleted albums can be
   //       recovered within a grace period (e.g. 30 days) before permanent deletion.
   // TODO: replace this single delete action with two options — "Delete for Everyone" (removes the
@@ -361,6 +393,57 @@ export default function AlbumScreen() {
                 >
                   <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
                   <ArrowLeft size={20} color="#FFFFFF" />
+                </BlurView>
+              </View>
+            </View>
+          </Pressable>
+
+          {/* Stats row — centered in nav bar */}
+          {!artifactsLoading && (
+            <View
+              style={{
+                position: 'absolute',
+                top: insets.top + 8,
+                left: 0,
+                right: 0,
+                height: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                gap: 16,
+                pointerEvents: 'none',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ImageIcon size={18} color="rgba(255,255,255,0.6)" />
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, fontWeight: '500' }}>
+                  {artifacts.filter((a) => a.media_type === 'photo').length}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <SquarePlay size={18} color="rgba(255,255,255,0.6)" />
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, fontWeight: '500' }}>
+                  {artifacts.filter((a) => a.media_type === 'video').length}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Edit (pencil) button */}
+          <Pressable
+            style={{ position: 'absolute', top: insets.top + 8, right: 68 }}
+            onPress={handleOpenEdit}
+            hitSlop={8}
+          >
+            <View style={styles.navBtnShadow}>
+              <View style={styles.navBtnClip}>
+                <BlurView
+                  intensity={40}
+                  tint="systemUltraThinMaterialDark"
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
+                  <Pencil size={18} color="#FFFFFF" />
                 </BlurView>
               </View>
             </View>
@@ -523,6 +606,7 @@ export default function AlbumScreen() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: 6,
+                                backgroundColor: '#171717',
                               }}
                             >
                               <View
@@ -534,7 +618,7 @@ export default function AlbumScreen() {
                                   right: 0,
                                   bottom: 0,
                                   borderWidth: 1.5,
-                                  borderColor: '#404040',
+                                  borderColor: '#333333',
                                   borderStyle: 'dashed',
                                   borderRadius: 4,
                                 }}
@@ -570,7 +654,16 @@ export default function AlbumScreen() {
                                 borderRadius: 4,
                                 overflow: 'hidden',
                               }}
-                              onPress={() =>
+                              onPress={() => {
+                                const idx = artifacts.findIndex((a) => a.id === item.id);
+                                setArtifactList(
+                                  artifacts.map((a) => ({
+                                    id: a.id,
+                                    media_type: a.media_type ?? 'photo',
+                                    original_content_type: a.original_content_type ?? '',
+                                  })),
+                                  idx,
+                                );
                                 router.push({
                                   pathname: '/album/artifact',
                                   params: {
@@ -578,8 +671,8 @@ export default function AlbumScreen() {
                                     mediaType: item.media_type,
                                     contentType: item.original_content_type,
                                   },
-                                })
-                              }
+                                });
+                              }}
                             >
                               {item.url ? (
                                 <Image
@@ -661,6 +754,123 @@ export default function AlbumScreen() {
             </View>
           </BlurView>
         </View>
+      </Modal>
+
+      {/* Edit album modal */}
+      {/* TODO: enhance modal UI — keyboard-aware scroll, character limits, inline validation, cover photo picker */}
+      <Modal
+        visible={editModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditModalOpen(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+          onPress={() => setEditModalOpen(false)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <BlurView
+              intensity={60}
+              tint="systemUltraThinMaterialDark"
+              style={{
+                borderRadius: 20,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.08)',
+              }}
+            >
+              <View style={{ backgroundColor: 'rgba(20,20,20,0.7)', padding: 24, gap: 16 }}>
+                <Text style={{ color: '#F5F5F5', fontSize: 18, fontWeight: '600' }}>
+                  Edit Album
+                </Text>
+
+                <View style={{ gap: 8 }}>
+                  <Text style={{ color: '#A3A3A3', fontSize: 13, fontWeight: '500' }}>Title</Text>
+                  <TextInput
+                    value={editTitle}
+                    onChangeText={setEditTitle}
+                    placeholder="Album title"
+                    placeholderTextColor="#525252"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.08)',
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      color: '#F5F5F5',
+                      fontSize: 16,
+                    }}
+                  />
+                </View>
+
+                <View style={{ gap: 8 }}>
+                  <Text style={{ color: '#A3A3A3', fontSize: 13, fontWeight: '500' }}>
+                    Description
+                  </Text>
+                  <TextInput
+                    value={editDescription}
+                    onChangeText={setEditDescription}
+                    placeholder="Add a description…"
+                    placeholderTextColor="#525252"
+                    multiline
+                    numberOfLines={3}
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.06)',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.08)',
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      color: '#F5F5F5',
+                      fontSize: 16,
+                      minHeight: 80,
+                      textAlignVertical: 'top',
+                    }}
+                  />
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                  <Pressable
+                    onPress={() => setEditModalOpen(false)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      paddingVertical: 13,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor: pressed
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(255,255,255,0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.08)',
+                    })}
+                  >
+                    <Text style={{ color: '#A3A3A3', fontSize: 16, fontWeight: '500' }}>
+                      Cancel
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleSaveEdit}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      paddingVertical: 13,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor: pressed ? '#2563EB' : '#3B82F6',
+                    })}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>Save</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </BlurView>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Upload progress */}
