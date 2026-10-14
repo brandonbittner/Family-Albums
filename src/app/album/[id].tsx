@@ -126,6 +126,7 @@ export default function AlbumScreen() {
       .from('albums')
       .select('*')
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
       .then(({ data }) => {
         if (data) setAlbum(data);
@@ -257,10 +258,14 @@ export default function AlbumScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await supabase
+            const { error } = await supabase
               .from('albums')
               .update({ deleted_at: new Date().toISOString() })
               .eq('id', id);
+            if (error) {
+              Alert.alert('Could not delete album', error.message);
+              return;
+            }
             router.back();
           },
         },

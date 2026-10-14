@@ -282,6 +282,7 @@ export default function AlbumsScreen() {
         const { data: albumData, error } = await supabase
           .from('albums')
           .select('*')
+          .is('deleted_at', null)
           .order('created_at', { ascending: false });
 
         if (!active) return;
