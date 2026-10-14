@@ -10,18 +10,23 @@ import { extractDominantColors } from '@/lib/color-extract';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { setArtifactList } from '@/lib/artifact-store';
 import {
+  ArrowDownUp,
   ArrowLeft,
+  Check,
   ImageIcon,
+  LayoutGrid,
+  List,
   MoreVertical,
   Pencil,
   Plus,
   SquarePlay,
   Trash2,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Modal,
   Pressable,
   ScrollView,
@@ -29,6 +34,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,6 +47,33 @@ import type { Database } from '@/types/database';
 type Album = Database['public']['Tables']['albums']['Row'];
 type ArtifactRow = Database['public']['Tables']['artifacts']['Row'];
 type GridItem = ArtifactRow & { url: string | null };
+
+type SortOrder = 'oldest' | 'newest';
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'oldest', label: 'Oldest' },
+];
+
+type ViewMode = 'grid' | 'list';
+const VIEW_TOGGLE_SEGMENT = 36;
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDuration(seconds: number): string {
+  const total = Math.round(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
 
 function toContentType(raw: string): ContentType {
   switch (raw) {
@@ -105,6 +138,7 @@ async function extractVideoFrame(
 export default function AlbumScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { user } = useAuth();
 
   const [album, setAlbum] = useState<Album | null>(null);
@@ -118,6 +152,35 @@ export default function AlbumScreen() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  // TODO: persist the user's preferred sort order per album
+  const [sortOrder, setSortOrder] = useState<SortOrder>('oldest');
+  const [sortMenuAnchor, setSortMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const sortTriggerRef = useRef<View>(null);
+  // TODO: persist the user's preferred view mode
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const viewToggleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(viewToggleAnim, {
+      toValue: viewMode === 'list' ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [viewMode, viewToggleAnim]);
+
+  // Grid order only — the cover image and gradient keep using `artifacts[0]`.
+  const sortedArtifacts = useMemo(() => {
+    const dir = sortOrder === 'oldest' ? 1 : -1;
+    return [...artifacts].sort(
+      (a, b) => dir * (Date.parse(a.created_at) - Date.parse(b.created_at)),
+    );
+  }, [artifacts, sortOrder]);
+
+  const openSortMenu = () => {
+    sortTriggerRef.current?.measureInWindow((x, y, width, height) => {
+      setSortMenuAnchor({ top: y + height + 6, right: windowWidth - (x + width) });
+    });
+  };
 
   // Fetch album metadata once
   useEffect(() => {
@@ -180,6 +243,25 @@ export default function AlbumScreen() {
       void fetchArtifacts();
     }, [fetchArtifacts]),
   );
+
+  const openArtifact = (item: GridItem) => {
+    setArtifactList(
+      sortedArtifacts.map((a) => ({
+        id: a.id,
+        media_type: a.media_type ?? 'photo',
+        original_content_type: a.original_content_type ?? '',
+      })),
+      sortedArtifacts.findIndex((a) => a.id === item.id),
+    );
+    router.push({
+      pathname: '/album/artifact',
+      params: {
+        artifactId: item.id,
+        mediaType: item.media_type,
+        contentType: item.original_content_type,
+      },
+    });
+  };
 
   const handleUpload = async () => {
     if (!user) return;
@@ -578,16 +660,204 @@ export default function AlbumScreen() {
           )}
         </View>
 
-        {/* ── Separator ── */}
-        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)' }} />
+        {/* ── Toolbar: view toggle + sort ── */}
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingTop: 10,
+            paddingBottom: 18,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              padding: 3,
+              borderRadius: 6,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 3,
+                left: 3,
+                bottom: 3,
+                width: VIEW_TOGGLE_SEGMENT,
+                borderRadius: 4,
+                backgroundColor: 'rgba(255,255,255,0.16)',
+                transform: [
+                  {
+                    translateX: viewToggleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, VIEW_TOGGLE_SEGMENT],
+                    }),
+                  },
+                ],
+              }}
+            />
+            {(
+              [
+                { mode: 'grid', Icon: LayoutGrid, label: 'Grid view' },
+                { mode: 'list', Icon: List, label: 'List view' },
+              ] as const
+            ).map(({ mode, Icon, label }) => (
+              <Pressable
+                key={mode}
+                onPress={() => setViewMode(mode)}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: viewMode === mode }}
+              >
+                <View
+                  style={{
+                    width: VIEW_TOGGLE_SEGMENT,
+                    height: 26,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Icon size={16} color={viewMode === mode ? '#F5F5F5' : '#737373'} />
+                </View>
+              </Pressable>
+            ))}
+          </View>
 
-        {/* ── Image grid ── */}
+          <Pressable ref={sortTriggerRef} onPress={openSortMenu} hitSlop={8}>
+            {({ pressed }) => (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 6,
+                  backgroundColor: pressed ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.08)',
+                }}
+              >
+                <ArrowDownUp size={16} color="#A3A3A3" />
+                <Text style={{ color: '#A3A3A3', fontSize: 16, fontWeight: '500' }}>
+                  {SORT_OPTIONS.find((o) => o.value === sortOrder)?.label}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
+        {/* ── Artifacts (grid or list) ── */}
         {artifactsLoading ? (
           <ActivityIndicator color="#A3A3A3" style={{ marginTop: 60 }} />
+        ) : viewMode === 'list' ? (
+          // TODO: virtualize list for large albums
+          <View style={{ paddingHorizontal: 12 }}>
+            <Pressable
+              disabled={uploading}
+              onPress={handleUpload}
+              style={{
+                height: 64,
+                borderRadius: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                backgroundColor: '#171717',
+                marginBottom: 8,
+              }}
+            >
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderWidth: 1.5,
+                  borderColor: '#333333',
+                  borderStyle: 'dashed',
+                  borderRadius: 4,
+                }}
+              />
+              {uploading ? (
+                <ActivityIndicator color="#A3A3A3" />
+              ) : (
+                <>
+                  <Plus size={20} color="#A3A3A3" />
+                  <Text style={{ color: '#A3A3A3', fontSize: 14, fontWeight: '500' }}>
+                    Upload Artifacts
+                  </Text>
+                </>
+              )}
+            </Pressable>
+            {sortedArtifacts.map((item, index) => {
+              const isVideo = item.media_type === 'video';
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.7}
+                  onPress={() => openArtifact(item)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    paddingVertical: 8,
+                    borderTopWidth: index === 0 ? 0 : 1,
+                    borderTopColor: 'rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                      backgroundColor: '#1C1C1E',
+                    }}
+                  >
+                    {item.url ? (
+                      <Image
+                        source={{ uri: item.url }}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : null}
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {isVideo ? (
+                        <SquarePlay size={14} color="#A3A3A3" />
+                      ) : (
+                        <ImageIcon size={14} color="#A3A3A3" />
+                      )}
+                      <Text style={{ color: '#F5F5F5', fontSize: 15, fontWeight: '500' }}>
+                        {isVideo ? 'Video' : 'Photo'}
+                        {isVideo && item.duration_seconds != null
+                          ? ` · ${formatDuration(item.duration_seconds)}`
+                          : ''}
+                      </Text>
+                    </View>
+                    {/* TODO: show uploader's display name (join profiles on uploaded_by) */}
+                    <Text style={{ color: '#A3A3A3', fontSize: 13 }} numberOfLines={1}>
+                      Uploaded {formatDate(item.created_at)}
+                      {item.taken_at ? ` · Taken ${formatDate(item.taken_at)}` : ''}
+                    </Text>
+                    <Text style={{ color: '#737373', fontSize: 13 }} numberOfLines={1}>
+                      {item.width} × {item.height} · {formatBytes(item.file_size_bytes)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         ) : (
           // TODO: virtualize grid for large albums
           (() => {
-            const allItems: (GridItem | 'upload')[] = ['upload', ...artifacts];
+            const allItems: (GridItem | 'upload')[] = ['upload', ...sortedArtifacts];
             return (
               <View style={{ gap: 6 }}>
                 {Array.from({ length: Math.ceil(allItems.length / 3) }, (_, row) => {
@@ -660,25 +930,7 @@ export default function AlbumScreen() {
                                 borderRadius: 4,
                                 overflow: 'hidden',
                               }}
-                              onPress={() => {
-                                const idx = artifacts.findIndex((a) => a.id === item.id);
-                                setArtifactList(
-                                  artifacts.map((a) => ({
-                                    id: a.id,
-                                    media_type: a.media_type ?? 'photo',
-                                    original_content_type: a.original_content_type ?? '',
-                                  })),
-                                  idx,
-                                );
-                                router.push({
-                                  pathname: '/album/artifact',
-                                  params: {
-                                    artifactId: item.id,
-                                    mediaType: item.media_type,
-                                    contentType: item.original_content_type,
-                                  },
-                                });
-                              }}
+                              onPress={() => openArtifact(item)}
                             >
                               {item.url ? (
                                 <Image
@@ -760,6 +1012,76 @@ export default function AlbumScreen() {
             </View>
           </BlurView>
         </View>
+      </Modal>
+
+      {/* Sort dropdown — anchored below the sort trigger */}
+      <Modal
+        visible={sortMenuAnchor !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSortMenuAnchor(null)}
+      >
+        <Pressable style={{ flex: 1 }} onPress={() => setSortMenuAnchor(null)} />
+        {sortMenuAnchor && (
+          <View
+            style={{
+              position: 'absolute',
+              top: sortMenuAnchor.top,
+              right: sortMenuAnchor.right,
+              width: 160,
+              borderRadius: 14,
+              overflow: 'hidden',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 12 },
+              shadowOpacity: 0.5,
+              shadowRadius: 24,
+              elevation: 24,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <BlurView intensity={60} tint="systemUltraThinMaterialDark">
+              <View style={{ backgroundColor: 'rgba(28,28,30,0.7)' }}>
+                {SORT_OPTIONS.map((option) => {
+                  const selected = option.value === sortOrder;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => {
+                        setSortOrder(option.value);
+                        setSortMenuAnchor(null);
+                      }}
+                    >
+                      {({ pressed }) => (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            backgroundColor: pressed ? 'rgba(255,255,255,0.06)' : 'transparent',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: selected ? '#F5F5F5' : '#A3A3A3',
+                              fontSize: 16,
+                              fontWeight: selected ? '600' : '400',
+                            }}
+                          >
+                            {option.label}
+                          </Text>
+                          {selected && <Check size={18} color="#F5F5F5" />}
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </BlurView>
+          </View>
+        )}
       </Modal>
 
       {/* Edit album modal */}
