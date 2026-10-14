@@ -373,6 +373,12 @@ export default function AlbumScreen() {
             grain={0}
             style={StyleSheet.absoluteFill}
           />
+          {/* Bottom shadow — makes content section appear elevated above gradient */}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.15)']}
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 30 }}
+            pointerEvents="none"
+          />
           {/* Shelf line */}
           <View
             style={[StyleSheet.absoluteFill, styles.shelfLine, { top: undefined, bottom: 0 }]}
@@ -415,14 +421,14 @@ export default function AlbumScreen() {
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <ImageIcon size={18} color="rgba(255,255,255,0.6)" />
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, fontWeight: '500' }}>
+                <ImageIcon size={18} color="rgba(255,255,255,0.35)" />
+                <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 18, fontWeight: '500' }}>
                   {artifacts.filter((a) => a.media_type === 'photo').length}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <SquarePlay size={18} color="rgba(255,255,255,0.6)" />
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, fontWeight: '500' }}>
+                <SquarePlay size={18} color="rgba(255,255,255,0.35)" />
+                <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 16, fontWeight: '500' }}>
                   {artifacts.filter((a) => a.media_type === 'video').length}
                 </Text>
               </View>
@@ -895,7 +901,7 @@ export default function AlbumScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0A0A0A' },
-  shelfLine: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  shelfLine: { height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
   navBtnShadow: {
     width: 44,
     height: 44,
