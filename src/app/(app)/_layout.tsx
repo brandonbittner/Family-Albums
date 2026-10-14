@@ -21,6 +21,10 @@ function FloatingTabBar({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   navigation: any;
 }) {
+  // Full-screen flows (e.g. create album) opt out with tabBarStyle: { display: 'none' }
+  const focusedOptions = descriptors[state.routes[state.index].key].options;
+  if (StyleSheet.flatten(focusedOptions.tabBarStyle)?.display === 'none') return null;
+
   return (
     <View style={[styles.shadow, { bottom: 16 }]}>
       <View style={styles.bar}>
@@ -151,7 +155,7 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="create-album" options={{ href: null }} />
+      <Tabs.Screen name="create-album" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

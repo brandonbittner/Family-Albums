@@ -1,12 +1,9 @@
 import { BlurView } from 'expo-blur';
-import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
-import * as VideoThumbnails from 'expo-video-thumbnails';
 import { LinearGradient } from 'expo-linear-gradient';
+import AlbumBookCover from '@/components/AlbumBookCover';
+import GlassIconButton from '@/components/GlassIconButton';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
-import { extractDominantColors } from '@/lib/color-extract';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { setArtifactList } from '@/lib/artifact-store';
 import {
@@ -40,7 +37,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/hooks/use-auth';
-import { getArtifactUrls, uploadArtifact, type ContentType, type Variant } from '@/lib/storage';
+import { getArtifactUrls, type Variant } from '@/lib/storage';
+import { pickArtifacts, uploadAssetsToAlbum } from '@/lib/upload-artifacts';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 
@@ -73,66 +71,6 @@ function formatBytes(bytes: number): string {
 function formatDuration(seconds: number): string {
   const total = Math.round(seconds);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
-
-function toContentType(raw: string): ContentType {
-  switch (raw) {
-    case 'image/png':
-      return 'image/png';
-    case 'video/mp4':
-      return 'video/mp4';
-    case 'video/quicktime':
-      return 'video/quicktime';
-    default:
-      return 'image/jpeg';
-  }
-}
-
-function parseExifDate(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  try {
-    const iso = raw.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
-    const d = new Date(iso);
-    return isNaN(d.getTime()) ? null : d.toISOString();
-  } catch {
-    return null;
-  }
-}
-
-// Returns resize options for the new chained ImageManipulator API.
-// Pass one dimension so the other auto-calculates (preserves aspect ratio).
-function thumbResize(w: number, h: number): { width?: number; height?: number } | null {
-  const short = Math.min(w, h);
-  if (short <= 400) return null;
-  return w <= h ? { width: 400 } : { height: 400 };
-}
-
-function displayResize(w: number, h: number): { width?: number; height?: number } | null {
-  const long = Math.max(w, h);
-  if (long <= 2048) return null;
-  return w >= h ? { width: 2048 } : { height: 2048 };
-}
-
-async function resizeToJpeg(
-  uri: string,
-  resize: { width?: number; height?: number } | null,
-  compress: number,
-): Promise<string> {
-  const ctx = ImageManipulator.manipulate(uri);
-  if (resize) ctx.resize(resize);
-  const ref = await ctx.renderAsync();
-  const result = await ref.saveAsync({ format: SaveFormat.JPEG, compress });
-  return result.uri;
-}
-
-// Extracts a still frame from the middle of a video for use as thumb/poster.
-// durationMs comes from expo-image-picker's asset.duration (milliseconds).
-async function extractVideoFrame(
-  uri: string,
-  durationMs: number,
-): Promise<{ uri: string; width: number; height: number }> {
-  const middleMs = Math.max(0, Math.round(durationMs / 2));
-  return VideoThumbnails.getThumbnailAsync(uri, { time: middleMs, quality: 1 });
 }
 
 export default function AlbumScreen() {
@@ -266,118 +204,20 @@ export default function AlbumScreen() {
   const handleUpload = async () => {
     if (!user) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsMultipleSelection: true,
-      quality: 1,
-      exif: true,
+    const assets = await pickArtifacts();
+    if (assets.length === 0) return;
+
+    setUploadProgress({ current: 0, total: assets.length });
+    const { failed } = await uploadAssetsToAlbum({
+      albumId: id,
+      userId: user.id,
+      assets,
+      onProgress: (current, total) => setUploadProgress({ current, total }),
     });
-
-    if (result.canceled || result.assets.length === 0) return;
-
-    // Check if the album currently has no artifacts so we know whether the
-    // first item in this batch will become the first-ordered image.
-    // TODO: when users can select cover images, run color extraction only for
-    //       the designated cover artifact instead of the first uploaded image.
-    const { count: existingCount } = await supabase
-      .from('album_artifacts')
-      .select('*', { count: 'exact', head: true })
-      .eq('album_id', id);
-    const isFirstInAlbum = (existingCount ?? 0) === 0;
-
-    setUploadProgress({ current: 0, total: result.assets.length });
-    let failed = 0;
-
-    for (let i = 0; i < result.assets.length; i++) {
-      const asset = result.assets[i];
-      const artifactId = Crypto.randomUUID();
-      const contentType = toContentType(asset.mimeType ?? '');
-
-      setUploadProgress({ current: i + 1, total: result.assets.length });
-
-      const isVideo = asset.type === 'video';
-      const { error: insertError } = await supabase.from('artifacts').insert({
-        id: artifactId,
-        uploaded_by: user.id,
-        media_type: isVideo ? 'video' : 'photo',
-        status: 'uploading',
-        width: asset.width ?? 0,
-        height: asset.height ?? 0,
-        original_content_type: contentType,
-        file_size_bytes: asset.fileSize ?? 0,
-        taken_at: parseExifDate(asset.exif?.DateTimeOriginal ?? asset.exif?.DateTime),
-      });
-
-      if (insertError) {
-        failed++;
-        continue;
-      }
-
-      try {
-        const w = asset.width ?? 0;
-        const h = asset.height ?? 0;
-
-        let uploadFiles: Parameters<typeof uploadArtifact>[1];
-        if (isVideo) {
-          const frame = await extractVideoFrame(asset.uri, asset.duration ?? 0);
-          const [thumbUri, posterUri] = await Promise.all([
-            resizeToJpeg(frame.uri, thumbResize(frame.width, frame.height), 0.8),
-            resizeToJpeg(frame.uri, displayResize(frame.width, frame.height), 0.85),
-          ]);
-          uploadFiles = [
-            { variant: 'original', localUri: asset.uri, contentType },
-            { variant: 'thumb', localUri: thumbUri, contentType: 'image/jpeg' },
-            { variant: 'poster', localUri: posterUri, contentType: 'image/jpeg' },
-          ];
-        } else {
-          const [thumbUri, displayUri] = await Promise.all([
-            resizeToJpeg(asset.uri, thumbResize(w, h), 0.8),
-            resizeToJpeg(asset.uri, displayResize(w, h), 0.85),
-          ]);
-          uploadFiles = [
-            { variant: 'original', localUri: asset.uri, contentType },
-            { variant: 'thumb', localUri: thumbUri, contentType: 'image/jpeg' },
-            { variant: 'display', localUri: displayUri, contentType: 'image/jpeg' },
-          ];
-        }
-
-        await uploadArtifact(artifactId, uploadFiles);
-
-        // Extract dominant colors from the local thumb for the first image in
-        // the album — used to seed the mesh gradient on the album detail screen.
-        const thumbUri = uploadFiles.find((f) => f.variant === 'thumb')?.localUri;
-        const dominantColors =
-          i === 0 && isFirstInAlbum && thumbUri
-            ? await extractDominantColors(thumbUri, 5).catch(() => null)
-            : null;
-
-        await Promise.all([
-          supabase
-            .from('artifacts')
-            .update({
-              status: 'ready',
-              ...(dominantColors ? { dominant_colors: dominantColors } : {}),
-            })
-            .eq('id', artifactId),
-          supabase.from('album_artifacts').insert({
-            album_id: id,
-            artifact_id: artifactId,
-            position: Date.now() + i,
-            added_by: user.id,
-          }),
-        ]);
-      } catch {
-        await supabase.from('artifacts').update({ status: 'failed' }).eq('id', artifactId);
-        failed++;
-      }
-    }
 
     setUploadProgress(null);
     if (failed > 0) {
-      Alert.alert(
-        'Upload finished',
-        `${result.assets.length - failed} succeeded, ${failed} failed.`,
-      );
+      Alert.alert('Upload finished', `${assets.length - failed} succeeded, ${failed} failed.`);
     }
     fetchArtifacts();
   };
@@ -466,25 +306,13 @@ export default function AlbumScreen() {
             style={[StyleSheet.absoluteFill, styles.shelfLine, { top: undefined, bottom: 0 }]}
           />
           {/* Back button */}
-          <Pressable
+          <GlassIconButton
             style={{ position: 'absolute', top: insets.top + 8, left: 16 }}
             onPress={() => router.back()}
-            hitSlop={8}
+            accessibilityLabel="Back"
           >
-            {/* Shadow lives here — overflow:hidden would clip it */}
-            <View style={styles.navBtnShadow}>
-              <View style={styles.navBtnClip}>
-                <BlurView
-                  intensity={40}
-                  tint="systemUltraThinMaterialDark"
-                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
-                  <ArrowLeft size={20} color="#FFFFFF" />
-                </BlurView>
-              </View>
-            </View>
-          </Pressable>
+            <ArrowLeft size={20} color="#FFFFFF" />
+          </GlassIconButton>
 
           {/* Stats row — centered in nav bar */}
           {!artifactsLoading && (
@@ -518,124 +346,27 @@ export default function AlbumScreen() {
           )}
 
           {/* Edit (pencil) button */}
-          <Pressable
+          <GlassIconButton
             style={{ position: 'absolute', top: insets.top + 8, right: 68 }}
             onPress={handleOpenEdit}
-            hitSlop={8}
+            accessibilityLabel="Edit album"
           >
-            <View style={styles.navBtnShadow}>
-              <View style={styles.navBtnClip}>
-                <BlurView
-                  intensity={40}
-                  tint="systemUltraThinMaterialDark"
-                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
-                  <Pencil size={18} color="#FFFFFF" />
-                </BlurView>
-              </View>
-            </View>
-          </Pressable>
+            <Pencil size={18} color="#FFFFFF" />
+          </GlassIconButton>
 
           {/* Menu (3-dot) button */}
-          <Pressable
+          <GlassIconButton
             style={{ position: 'absolute', top: insets.top + 8, right: 16 }}
             onPress={() => setMenuOpen(true)}
-            hitSlop={8}
+            accessibilityLabel="Album options"
           >
-            <View style={styles.navBtnShadow}>
-              <View style={styles.navBtnClip}>
-                <BlurView
-                  intensity={40}
-                  tint="systemUltraThinMaterialDark"
-                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <View style={[StyleSheet.absoluteFill, styles.navBtnOverlay]} />
-                  <MoreVertical size={20} color="#FFFFFF" />
-                </BlurView>
-              </View>
-            </View>
-          </Pressable>
+            <MoreVertical size={20} color="#FFFFFF" />
+          </GlassIconButton>
         </View>
 
         {/* ── Book cover (overlaps shelf) ── */}
         <View style={{ alignItems: 'center', marginTop: COVER_MARGIN_TOP }}>
-          <View
-            style={{
-              width: COVER_WIDTH,
-              height: COVER_HEIGHT,
-              borderRadius: 2,
-              overflow: 'hidden',
-              backgroundColor: '#FFFFFF',
-              shadowColor: '#000',
-              shadowOffset: { width: 36, height: 20 },
-              shadowOpacity: 0.8,
-              shadowRadius: 32,
-              elevation: 32,
-            }}
-          >
-            <View
-              style={{
-                flex: 1,
-                paddingTop: 12,
-                paddingBottom: 12,
-                paddingLeft: 24,
-                paddingRight: 12,
-              }}
-            >
-              {/* Title — TODO: font discovery for cover typography (try Playfair Display, Cormorant, etc.) */}
-              <Text
-                style={{
-                  color: '#1A1A1A',
-                  fontSize: 14,
-                  fontWeight: '700',
-                  lineHeight: 20,
-                  marginBottom: 14,
-                  marginTop: 6,
-                  textAlign: 'center',
-                  textTransform: 'uppercase',
-                  fontFamily: 'Georgia',
-                  letterSpacing: 1,
-                }}
-                numberOfLines={4}
-              >
-                {album?.title}
-              </Text>
-              {/* Cover image */}
-              <View
-                style={{ flex: 1, borderRadius: 3, overflow: 'hidden', backgroundColor: '#E8E4DF' }}
-              >
-                {artifacts[0]?.url ? (
-                  <Image
-                    source={{ uri: artifacts[0].url }}
-                    style={{ width: '100%', height: '100%' }}
-                    contentFit="cover"
-                  />
-                ) : null}
-              </View>
-            </View>
-            {/* Spine */}
-            <LinearGradient
-              colors={[
-                'rgba(0,0,0,0)',
-                'rgba(0,0,0,0.22)',
-                'rgba(0,0,0,0)',
-                'rgba(255,255,255,0.13)',
-                'rgba(255,255,255,0)',
-              ]}
-              locations={[0, 0.15, 0.3, 0.5, 0.75]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{ position: 'absolute', top: 0, left: 5, bottom: 0, width: 26 }}
-              pointerEvents="none"
-            />
-            {/* Bottom shadow */}
-            <LinearGradient
-              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.25)']}
-              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 32 }}
-              pointerEvents="none"
-            />
-          </View>
+          <AlbumBookCover width={COVER_WIDTH} title={album?.title} imageUri={artifacts[0]?.url} />
         </View>
 
         {/* ── Title & description ── */}
@@ -754,6 +485,7 @@ export default function AlbumScreen() {
         ) : viewMode === 'list' ? (
           // TODO: virtualize list for large albums
           <View style={{ paddingHorizontal: 12 }}>
+            {/* TODO: enhance upload artifacts UI in album list view */}
             <Pressable
               disabled={uploading}
               onPress={handleUpload}
@@ -1224,25 +956,6 @@ export default function AlbumScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0A0A0A' },
   shelfLine: { height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
-  navBtnShadow: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  navBtnClip: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-  },
-  navBtnOverlay: { backgroundColor: 'rgba(255,255,255,0.14)' },
   progressBar: {
     position: 'absolute',
     bottom: 0,
