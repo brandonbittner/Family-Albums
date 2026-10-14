@@ -249,17 +249,37 @@ export default function AlbumsScreen() {
   const [searchText, setSearchText] = useState('');
   const searchWidth = useRef(new Animated.Value(44)).current;
   const avatarOpacity = useRef(new Animated.Value(1)).current;
+  const avatarScale = useRef(new Animated.Value(1)).current;
+  const searchContentOpacity = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
   const openSearch = () => {
     setSearchActive(true);
+    searchContentOpacity.setValue(0);
     Animated.parallel([
-      Animated.timing(searchWidth, {
+      // Width is a layout prop, so it can't use the native driver.
+      Animated.spring(searchWidth, {
         toValue: SCREEN_WIDTH - 40,
-        duration: 250,
+        damping: 18,
+        stiffness: 170,
+        mass: 0.9,
+        restDisplacementThreshold: 0.5,
+        restSpeedThreshold: 2,
         useNativeDriver: false,
       }),
-      Animated.timing(avatarOpacity, { toValue: 0, duration: 150, useNativeDriver: false }),
+      Animated.timing(avatarOpacity, { toValue: 0, duration: 140, useNativeDriver: true }),
+      Animated.spring(avatarScale, {
+        toValue: 0.6,
+        damping: 18,
+        stiffness: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchContentOpacity, {
+        toValue: 1,
+        duration: 180,
+        delay: 90,
+        useNativeDriver: true,
+      }),
     ]).start(() => searchInputRef.current?.focus());
   };
 
@@ -267,8 +287,31 @@ export default function AlbumsScreen() {
     searchInputRef.current?.blur();
     setSearchText('');
     Animated.parallel([
-      Animated.timing(searchWidth, { toValue: 44, duration: 200, useNativeDriver: false }),
-      Animated.timing(avatarOpacity, { toValue: 1, duration: 200, useNativeDriver: false }),
+      Animated.timing(searchContentOpacity, { toValue: 0, duration: 90, useNativeDriver: true }),
+      // Clamp so the pill never squishes narrower than the 44pt circle.
+      Animated.spring(searchWidth, {
+        toValue: 44,
+        damping: 20,
+        stiffness: 220,
+        overshootClamping: true,
+        restDisplacementThreshold: 0.5,
+        restSpeedThreshold: 2,
+        useNativeDriver: false,
+      }),
+      Animated.timing(avatarOpacity, {
+        toValue: 1,
+        duration: 180,
+        delay: 60,
+        useNativeDriver: true,
+      }),
+      // Slight overshoot as the avatar pops back in.
+      Animated.spring(avatarScale, {
+        toValue: 1,
+        damping: 12,
+        stiffness: 200,
+        delay: 60,
+        useNativeDriver: true,
+      }),
     ]).start(() => setSearchActive(false));
   };
 
@@ -402,7 +445,14 @@ export default function AlbumsScreen() {
               <Search size={18} color="#F5F5F5" />
             </Pressable>
             {searchActive && (
-              <>
+              <Animated.View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  opacity: searchContentOpacity,
+                }}
+              >
                 <TextInput
                   ref={searchInputRef}
                   value={searchText}
@@ -415,13 +465,13 @@ export default function AlbumsScreen() {
                 <Pressable onPress={closeSearch} hitSlop={8}>
                   <X size={18} color="#F5F5F5" />
                 </Pressable>
-              </>
+              </Animated.View>
             )}
           </BlurView>
         </Animated.View>
 
         {/* Profile avatar */}
-        <Animated.View style={{ opacity: avatarOpacity }}>
+        <Animated.View style={{ opacity: avatarOpacity, transform: [{ scale: avatarScale }] }}>
           <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
             <View
               style={{
