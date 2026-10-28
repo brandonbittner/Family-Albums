@@ -2,6 +2,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import AlbumBookCover from '@/components/AlbumBookCover';
+import FrostedBackground, { FROSTED_BORDER_COLOR } from '@/components/FrostedBackground';
 import GlassIconButton from '@/components/GlassIconButton';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -38,7 +39,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/hooks/use-auth';
 import { getArtifactUrls, type Variant } from '@/lib/storage';
-import { pickArtifacts, uploadAssetsToAlbum } from '@/lib/upload-artifacts';
+import { collectArtifactDetails } from '@/lib/artifact-details-session';
+import { pickArtifacts, toSelectedArtifacts, uploadAssetsToAlbum } from '@/lib/upload-artifacts';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 
@@ -208,17 +210,20 @@ export default function AlbumScreen() {
     const assets = await pickArtifacts();
     if (assets.length === 0) return;
 
-    setUploadProgress({ current: 0, total: assets.length });
+    const artifacts = await collectArtifactDetails(await toSelectedArtifacts(assets));
+    if (!artifacts) return;
+
+    setUploadProgress({ current: 0, total: artifacts.length });
     const { failed } = await uploadAssetsToAlbum({
       albumId: id,
       userId: user.id,
-      assets,
+      artifacts,
       onProgress: (current, total) => setUploadProgress({ current, total }),
     });
 
     setUploadProgress(null);
     if (failed > 0) {
-      Alert.alert('Upload finished', `${assets.length - failed} succeeded, ${failed} failed.`);
+      Alert.alert('Upload finished', `${artifacts.length - failed} succeeded, ${failed} failed.`);
     }
     fetchArtifacts();
   };
@@ -941,6 +946,7 @@ export default function AlbumScreen() {
       {/* Upload progress */}
       {uploading && uploadProgress && (
         <View style={[styles.progressBar, { paddingBottom: insets.bottom + 16 }]}>
+          <FrostedBackground />
           <Text style={{ color: '#F5F5F5', fontSize: 13, fontWeight: '500', marginBottom: 8 }}>
             Uploading {uploadProgress.current} of {uploadProgress.total}…
           </Text>
@@ -966,9 +972,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#141414',
+    overflow: 'hidden',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: FROSTED_BORDER_COLOR,
     paddingHorizontal: 24,
     paddingTop: 16,
   },

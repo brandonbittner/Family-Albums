@@ -116,13 +116,22 @@ export type Database = {
       };
       artifacts: {
         Row: {
+          caption: string | null;
           created_at: string;
+          date_day: number | null;
+          date_month: number | null;
+          date_year: number | null;
           deleted_at: string | null;
           dominant_colors: string[] | null;
           duration_seconds: number | null;
           file_size_bytes: number;
           height: number;
           id: string;
+          location_address: string | null;
+          location_lat: number | null;
+          location_lng: number | null;
+          location_name: string | null;
+          location_place_id: string | null;
           media_type: Database['public']['Enums']['media_type'];
           original_content_type: string;
           status: Database['public']['Enums']['artifact_status'];
@@ -132,13 +141,22 @@ export type Database = {
           width: number;
         };
         Insert: {
+          caption?: string | null;
           created_at?: string;
+          date_day?: number | null;
+          date_month?: number | null;
+          date_year?: number | null;
           deleted_at?: string | null;
           dominant_colors?: string[] | null;
           duration_seconds?: number | null;
           file_size_bytes: number;
           height: number;
           id: string;
+          location_address?: string | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          location_place_id?: string | null;
           media_type: Database['public']['Enums']['media_type'];
           original_content_type: string;
           status?: Database['public']['Enums']['artifact_status'];
@@ -148,13 +166,22 @@ export type Database = {
           width: number;
         };
         Update: {
+          caption?: string | null;
           created_at?: string;
+          date_day?: number | null;
+          date_month?: number | null;
+          date_year?: number | null;
           deleted_at?: string | null;
           dominant_colors?: string[] | null;
           duration_seconds?: number | null;
           file_size_bytes?: number;
           height?: number;
           id?: string;
+          location_address?: string | null;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_name?: string | null;
+          location_place_id?: string | null;
           media_type?: Database['public']['Enums']['media_type'];
           original_content_type?: string;
           status?: Database['public']['Enums']['artifact_status'];

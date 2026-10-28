@@ -34,7 +34,13 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Swipe-to-dismiss is off so leaving always goes through Cancel, Skip, or Done. */}
+        <Stack.Screen
+          name="artifact-details"
+          options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+        />
+      </Stack>
     </AuthProvider>
   );
 }

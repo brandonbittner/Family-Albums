@@ -4,10 +4,30 @@ import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
 import { extractDominantColors } from './color-extract';
+import { EMPTY_PARTIAL_DATE, normalizePartialDate, type PartialDate } from './partial-date';
+import type { ArtifactLocation } from './places';
 import { uploadArtifact, type ContentType } from './storage';
 import { supabase } from './supabase';
 
 export type PickedAsset = ImagePicker.ImagePickerAsset;
+
+/** User-entered details for one artifact, collected before upload. */
+export type ArtifactDetails = {
+  caption: string;
+  date: PartialDate;
+  location: ArtifactLocation | null;
+};
+
+/** A picked asset paired with a local image that can be rendered before upload. */
+export type SelectedArtifact = {
+  key: string;
+  asset: PickedAsset;
+  /** Local image to render — the asset itself for photos, an extracted frame for videos. */
+  previewUri: string | null;
+  /** Capture time from the file's EXIF data — offered to the user, never assumed. */
+  metadataDate: Date | null;
+  details: ArtifactDetails;
+};
 
 function toContentType(raw: string): ContentType {
   switch (raw) {
@@ -32,6 +52,16 @@ function parseExifDate(raw: unknown): string | null {
     return null;
   }
 }
+
+function exifTakenAt(asset: PickedAsset): string | null {
+  return parseExifDate(asset.exif?.DateTimeOriginal ?? asset.exif?.DateTime);
+}
+
+export const EMPTY_ARTIFACT_DETAILS: ArtifactDetails = {
+  caption: '',
+  date: EMPTY_PARTIAL_DATE,
+  location: null,
+};
 
 // Returns resize options for the new chained ImageManipulator API.
 // Pass one dimension so the other auto-calculates (preserves aspect ratio).
@@ -80,20 +110,42 @@ export async function pickArtifacts(): Promise<PickedAsset[]> {
   return result.canceled ? [] : result.assets;
 }
 
+/** Builds renderable selections for picked assets, extracting a still frame for videos. */
+export async function toSelectedArtifacts(assets: PickedAsset[]): Promise<SelectedArtifact[]> {
+  return Promise.all(
+    assets.map(async (asset): Promise<SelectedArtifact> => {
+      let previewUri: string | null = asset.uri;
+      if (asset.type === 'video') {
+        previewUri = await extractVideoFrame(asset.uri, asset.duration ?? 0)
+          .then((frame) => frame.uri)
+          .catch(() => null);
+      }
+      const takenAt = exifTakenAt(asset);
+      return {
+        key: asset.assetId ?? asset.uri,
+        asset,
+        previewUri,
+        metadataDate: takenAt ? new Date(takenAt) : null,
+        details: EMPTY_ARTIFACT_DETAILS,
+      };
+    }),
+  );
+}
+
 /**
- * Uploads picked assets and attaches them to an album, one at a time.
+ * Uploads picked artifacts and attaches them to an album, one at a time.
  * Each asset gets an `artifacts` row, its variants uploaded to storage, and an
  * `album_artifacts` link. Returns how many assets failed.
  */
 export async function uploadAssetsToAlbum({
   albumId,
   userId,
-  assets,
+  artifacts,
   onProgress,
 }: {
   albumId: string;
   userId: string;
-  assets: PickedAsset[];
+  artifacts: SelectedArtifact[];
   onProgress?: (current: number, total: number) => void;
 }): Promise<{ failed: number }> {
   // Check if the album currently has no artifacts so we know whether the
@@ -108,14 +160,15 @@ export async function uploadAssetsToAlbum({
 
   let failed = 0;
 
-  for (let i = 0; i < assets.length; i++) {
-    const asset = assets[i];
+  for (let i = 0; i < artifacts.length; i++) {
+    const { asset, details } = artifacts[i];
     const artifactId = Crypto.randomUUID();
     const contentType = toContentType(asset.mimeType ?? '');
 
-    onProgress?.(i + 1, assets.length);
+    onProgress?.(i + 1, artifacts.length);
 
     const isVideo = asset.type === 'video';
+    const date = normalizePartialDate(details.date);
     const { error: insertError } = await supabase.from('artifacts').insert({
       id: artifactId,
       uploaded_by: userId,
@@ -125,10 +178,20 @@ export async function uploadAssetsToAlbum({
       height: asset.height ?? 0,
       original_content_type: contentType,
       file_size_bytes: asset.fileSize ?? 0,
-      taken_at: parseExifDate(asset.exif?.DateTimeOriginal ?? asset.exif?.DateTime),
+      taken_at: exifTakenAt(asset),
+      date_year: date.year,
+      date_month: date.month,
+      date_day: date.day,
+      caption: details.caption.trim() || null,
+      location_name: details.location?.name || null,
+      location_address: details.location?.address ?? null,
+      location_place_id: details.location?.placeId ?? null,
+      location_lat: details.location?.lat ?? null,
+      location_lng: details.location?.lng ?? null,
     });
 
     if (insertError) {
+      console.error('[uploadAssetsToAlbum] artifact insert failed:', insertError);
       failed++;
       continue;
     }
@@ -186,7 +249,8 @@ export async function uploadAssetsToAlbum({
           added_by: userId,
         }),
       ]);
-    } catch {
+    } catch (e) {
+      console.error('[uploadAssetsToAlbum] upload failed:', e);
       await supabase.from('artifacts').update({ status: 'failed' }).eq('id', artifactId);
       failed++;
     }

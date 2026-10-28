@@ -23,20 +23,14 @@ import AlbumBookCover from '@/components/AlbumBookCover';
 import GlassIconButton from '@/components/GlassIconButton';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
 import { useAuth } from '@/hooks/use-auth';
+import { collectArtifactDetails } from '@/lib/artifact-details-session';
 import { supabase } from '@/lib/supabase';
 import {
-  extractVideoFrame,
   pickArtifacts,
+  toSelectedArtifacts,
   uploadAssetsToAlbum,
-  type PickedAsset,
+  type SelectedArtifact,
 } from '@/lib/upload-artifacts';
-
-type SelectedArtifact = {
-  key: string;
-  asset: PickedAsset;
-  /** Local image to render — the asset itself for photos, an extracted frame for videos. */
-  previewUri: string | null;
-};
 
 // ── Layout constants (mirrors the album detail header) ──────────────────────
 const COVER_WIDTH = 190;
@@ -77,26 +71,21 @@ export default function CreateAlbumScreen() {
 
   const handleAddArtifacts = async () => {
     setPicking(true);
+    let picked: SelectedArtifact[];
     try {
       const assets = await pickArtifacts();
-      const picked = await Promise.all(
-        assets.map(async (asset): Promise<SelectedArtifact> => {
-          let previewUri: string | null = asset.uri;
-          if (asset.type === 'video') {
-            previewUri = await extractVideoFrame(asset.uri, asset.duration ?? 0)
-              .then((frame) => frame.uri)
-              .catch(() => null);
-          }
-          return { key: asset.assetId ?? asset.uri, asset, previewUri };
-        }),
-      );
-      setSelected((prev) => {
-        const existing = new Set(prev.map((s) => s.key));
-        return [...prev, ...picked.filter((p) => !existing.has(p.key))];
-      });
+      if (assets.length === 0) return;
+      const existing = new Set(selected.map((s) => s.key));
+      picked = (await toSelectedArtifacts(assets)).filter((p) => !existing.has(p.key));
     } finally {
       setPicking(false);
     }
+    if (picked.length === 0) return;
+
+    // TODO: let users reopen the details screen for artifacts already in the selection
+    const withDetails = await collectArtifactDetails(picked);
+    if (!withDetails) return;
+    setSelected((prev) => [...prev, ...withDetails]);
   };
 
   const handleRemove = (key: string) => {
@@ -127,7 +116,7 @@ export default function CreateAlbumScreen() {
       ({ failed } = await uploadAssetsToAlbum({
         albumId,
         userId: user.id,
-        assets: selected.map((s) => s.asset),
+        artifacts: selected,
         onProgress: (current, count) => setUploadProgress({ current, total: count }),
       }));
       setUploadProgress(null);
