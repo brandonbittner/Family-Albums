@@ -2,6 +2,10 @@ export type ArtifactEntry = {
   id: string;
   media_type: string;
   original_content_type: string;
+  caption: string | null;
+  /** User-entered date, already formatted (e.g. "Jun 1987"). */
+  dateLabel: string | null;
+  locationName: string | null;
 };
 
 let _artifacts: ArtifactEntry[] = [];

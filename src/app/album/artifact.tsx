@@ -1,14 +1,17 @@
 import { BlurView } from 'expo-blur';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import {
   ArrowLeft,
+  Calendar,
   Download,
   Heart,
   Info,
+  MapPin,
   MoreVertical,
   TagPlus,
   Trash2,
@@ -346,6 +349,53 @@ export default function ArtifactScreen() {
         </View>
       </Modal>
 
+      {/* ── Details: date & location, then caption ── */}
+      {currentArtifact &&
+      (currentArtifact.caption || currentArtifact.dateLabel || currentArtifact.locationName) ? (
+        <>
+          {/* Darkens the bottom of the photo so white text reads on bright images. */}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.65)']}
+            style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 260 }}
+            pointerEvents="none"
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 24,
+              right: 24,
+              bottom: insets.bottom + BAR_BOTTOM_OFFSET + BAR_HEIGHT + 14,
+              gap: 6,
+            }}
+          >
+            {!!(currentArtifact.dateLabel || currentArtifact.locationName) && (
+              <View style={styles.metaRow}>
+                {!!currentArtifact.dateLabel && (
+                  <View style={styles.metaItem}>
+                    <Calendar size={15} color="rgba(255,255,255,0.75)" />
+                    <Text style={styles.metaText}>{currentArtifact.dateLabel}</Text>
+                  </View>
+                )}
+                {!!currentArtifact.locationName && (
+                  <View style={[styles.metaItem, { flexShrink: 1 }]}>
+                    <MapPin size={15} color="rgba(255,255,255,0.75)" />
+                    <Text style={[styles.metaText, { flexShrink: 1 }]} numberOfLines={1}>
+                      {currentArtifact.locationName}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+            {currentArtifact.caption ? (
+              <Text style={styles.caption} numberOfLines={4}>
+                {currentArtifact.caption}
+              </Text>
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
       {/* ── Bottom action bar ── */}
       <BottomActionBar insets={insets} />
     </View>
@@ -353,13 +403,15 @@ export default function ArtifactScreen() {
 }
 
 const BAR_HEIGHT = 60;
+// Gap between the bar and the bottom safe area.
+const BAR_BOTTOM_OFFSET = 4;
 
 function BottomActionBar({ insets }: { insets: ReturnType<typeof useSafeAreaInsets> }) {
   return (
     <View
       style={{
         position: 'absolute',
-        bottom: insets.bottom + 16,
+        bottom: insets.bottom + BAR_BOTTOM_OFFSET,
         left: 0,
         right: 0,
         alignItems: 'center',
@@ -509,6 +561,24 @@ const barStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 15,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  caption: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 24,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   navBtnShadow: {
     width: 44,
     height: 44,

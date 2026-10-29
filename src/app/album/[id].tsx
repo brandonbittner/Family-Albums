@@ -7,6 +7,7 @@ import GlassIconButton from '@/components/GlassIconButton';
 import MeshGradient, { ALBUM_COLORS } from '@/components/MeshGradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { setArtifactList } from '@/lib/artifact-store';
+import { formatPartialDate } from '@/lib/partial-date';
 import {
   ArrowDownUp,
   ArrowLeft,
@@ -191,6 +192,10 @@ export default function AlbumScreen() {
         id: a.id,
         media_type: a.media_type ?? 'photo',
         original_content_type: a.original_content_type ?? '',
+        caption: a.caption,
+        dateLabel:
+          formatPartialDate({ year: a.date_year, month: a.date_month, day: a.date_day }) || null,
+        locationName: a.location_name,
       })),
       sortedArtifacts.findIndex((a) => a.id === item.id),
     );
