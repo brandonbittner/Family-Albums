@@ -13,6 +13,7 @@ import {
   Info,
   MapPin,
   MoreVertical,
+  Pencil,
   TagPlus,
   Trash2,
 } from 'lucide-react-native';
@@ -33,7 +34,10 @@ import {
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { collectArtifactDetails } from '@/lib/artifact-details-session';
+import { detailsFromRow, saveArtifactDetails } from '@/lib/artifact-details';
 import { getArtifactList, type ArtifactEntry } from '@/lib/artifact-store';
+import { formatPartialDate } from '@/lib/partial-date';
 import { supabase } from '@/lib/supabase';
 import { getArtifactUrl, type ContentType, type Variant } from '@/lib/storage';
 
@@ -118,7 +122,9 @@ export default function ArtifactScreen() {
   const insets = useSafeAreaInsets();
   const { width, height: windowHeight } = useWindowDimensions();
 
-  const { artifacts, initialIndex } = getArtifactList();
+  const [{ initialIndex }] = useState(() => getArtifactList());
+  // Local copy so edits show up without going back to the album.
+  const [artifacts, setArtifacts] = useState(() => getArtifactList().artifacts);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [captionExpanded, setCaptionExpanded] = useState(false);
 
@@ -167,6 +173,69 @@ export default function ArtifactScreen() {
     } catch {
       Alert.alert('Error', 'Failed to save artifact.');
     }
+  };
+
+  const handleEdit = async () => {
+    setMenuOpen(false);
+    if (!currentArtifact) return;
+    const artifactId = currentArtifact.id;
+
+    // Load the full row — the viewer only carries display-ready fields.
+    const { data: row, error } = await supabase
+      .from('artifacts')
+      .select('*')
+      .eq('id', artifactId)
+      .single();
+    if (error || !row) {
+      console.error('[ArtifactScreen] load for edit failed:', error);
+      Alert.alert('Error', "Couldn't load this artifact's details.");
+      return;
+    }
+
+    const isVideo = row.media_type === 'video';
+    const previewUri = await getArtifactUrl(
+      artifactId,
+      isVideo ? 'poster' : 'display',
+      'image/jpeg',
+    ).catch(() => null);
+
+    const result = await collectArtifactDetails(
+      [
+        {
+          key: artifactId,
+          previewUri,
+          isVideo,
+          metadataDate: row.taken_at ? new Date(row.taken_at) : null,
+          // The photo's own GPS isn't kept after upload, so there's no town to suggest.
+          metadataCoords: null,
+          details: detailsFromRow(row),
+        },
+      ],
+      { mode: 'edit' },
+    );
+    if (!result) return;
+    const { details } = result[0];
+
+    try {
+      await saveArtifactDetails(artifactId, details);
+    } catch (e) {
+      console.error('[ArtifactScreen] saveArtifactDetails failed:', e);
+      Alert.alert('Error', "Couldn't save your changes. Please try again.");
+      return;
+    }
+
+    setArtifacts((prev) =>
+      prev.map((a) =>
+        a.id === artifactId
+          ? {
+              ...a,
+              caption: details.caption.trim() || null,
+              dateLabel: formatPartialDate(details.date) || null,
+              locationName: details.location?.name || null,
+            }
+          : a,
+      ),
+    );
   };
 
   const handleDelete = () => {
@@ -327,6 +396,26 @@ export default function ArtifactScreen() {
                   >
                     <Download size={20} color="#F5F5F5" />
                     <Text style={{ color: '#F5F5F5', fontSize: 16, marginLeft: 14 }}>Download</Text>
+                  </View>
+                )}
+              </Pressable>
+
+              {/* Edit */}
+              <Pressable onPress={handleEdit}>
+                {({ pressed }) => (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      backgroundColor: pressed ? 'rgba(255,255,255,0.06)' : 'transparent',
+                      borderBottomWidth: 1,
+                      borderBottomColor: 'rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <Pencil size={20} color="#F5F5F5" />
+                    <Text style={{ color: '#F5F5F5', fontSize: 16, marginLeft: 14 }}>Edit</Text>
                   </View>
                 )}
               </Pressable>

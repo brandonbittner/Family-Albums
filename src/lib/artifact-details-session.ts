@@ -1,29 +1,38 @@
 import { router } from 'expo-router';
 
-import type { SelectedArtifact } from './upload-artifacts';
+import type { DetailsItem } from './artifact-details';
 
-// Hands picked artifacts to the details screen and back. Assets (with local
-// URIs and EXIF) are too large for route params, so — like artifact-store —
-// they live in module state for the duration of one details session.
+// Hands items to the details screen and back. Picked assets (with local URIs
+// and EXIF) are too large for route params, so — like artifact-store — they
+// live in module state for the duration of one details session.
+
+/**
+ * 'upload': cards for freshly picked artifacts, with Skip to upload the rest as-is.
+ * 'edit': a card for an existing artifact; no Skip, cancelling discards edits.
+ */
+export type DetailsMode = 'upload' | 'edit';
 
 export type DetailsSession = {
-  artifacts: SelectedArtifact[];
-  resolve: (result: SelectedArtifact[] | null) => void;
+  artifacts: DetailsItem[];
+  mode: DetailsMode;
+  resolve: (result: DetailsItem[] | null) => void;
 };
 
 let _session: DetailsSession | null = null;
 
 /**
- * Opens the artifact details screen for the given selections. Resolves with the
- * selections (saved cards carry the user's details, the rest keep their defaults),
- * or null if the user cancelled the upload.
+ * Opens the artifact details screen for the given items. Resolves with the
+ * same items (saved cards carry the user's details, the rest keep theirs),
+ * or null if the user cancelled.
  */
-export function collectArtifactDetails(
-  artifacts: SelectedArtifact[],
-): Promise<SelectedArtifact[] | null> {
+export function collectArtifactDetails<T extends DetailsItem>(
+  artifacts: T[],
+  { mode = 'upload' }: { mode?: DetailsMode } = {},
+): Promise<T[] | null> {
   _session?.resolve(null);
   return new Promise((resolve) => {
-    _session = { artifacts, resolve };
+    // The screen only ever hands back the items it was given, with new details.
+    _session = { artifacts, mode, resolve: resolve as DetailsSession['resolve'] };
     router.push('/artifact-details');
   });
 }
@@ -33,7 +42,7 @@ export function getDetailsSession(): DetailsSession | null {
 }
 
 /** Ends the current session. Safe to call more than once — only the first call counts. */
-export function finishDetailsSession(result: SelectedArtifact[] | null) {
+export function finishDetailsSession(result: DetailsItem[] | null) {
   const session = _session;
   _session = null;
   session?.resolve(result);

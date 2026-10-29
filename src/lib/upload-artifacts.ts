@@ -3,34 +3,19 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
+import { detailsToColumns, EMPTY_ARTIFACT_DETAILS, type DetailsItem } from './artifact-details';
 import { extractDominantColors } from './color-extract';
-import { EMPTY_PARTIAL_DATE, normalizePartialDate, type PartialDate } from './partial-date';
-import { exifCoordinates, type Coordinates } from './photo-location';
-import type { ArtifactLocation } from './places';
+import { exifCoordinates } from './photo-location';
 import { uploadArtifact, type ContentType } from './storage';
 import { supabase } from './supabase';
 
 export type PickedAsset = ImagePicker.ImagePickerAsset;
 
-/** User-entered details for one artifact, collected before upload. */
-export type ArtifactDetails = {
-  caption: string;
-  date: PartialDate;
-  location: ArtifactLocation | null;
-};
-
-/** A picked asset paired with a local image that can be rendered before upload. */
-export type SelectedArtifact = {
-  key: string;
-  asset: PickedAsset;
-  /** Local image to render — the asset itself for photos, an extracted frame for videos. */
-  previewUri: string | null;
-  /** Capture time from the file's EXIF data — offered to the user, never assumed. */
-  metadataDate: Date | null;
-  /** GPS position from the file's EXIF data — offered as a town, never assumed. */
-  metadataCoords: Coordinates | null;
-  details: ArtifactDetails;
-};
+/**
+ * A picked asset ready for the details screen and upload. Its preview is the
+ * asset itself for photos, or an extracted frame for videos.
+ */
+export type SelectedArtifact = DetailsItem & { asset: PickedAsset };
 
 function toContentType(raw: string): ContentType {
   switch (raw) {
@@ -59,12 +44,6 @@ function parseExifDate(raw: unknown): string | null {
 function exifTakenAt(asset: PickedAsset): string | null {
   return parseExifDate(asset.exif?.DateTimeOriginal ?? asset.exif?.DateTime);
 }
-
-export const EMPTY_ARTIFACT_DETAILS: ArtifactDetails = {
-  caption: '',
-  date: EMPTY_PARTIAL_DATE,
-  location: null,
-};
 
 // Returns resize options for the new chained ImageManipulator API.
 // Pass one dimension so the other auto-calculates (preserves aspect ratio).
@@ -128,6 +107,7 @@ export async function toSelectedArtifacts(assets: PickedAsset[]): Promise<Select
         key: asset.assetId ?? asset.uri,
         asset,
         previewUri,
+        isVideo: asset.type === 'video',
         metadataDate: takenAt ? new Date(takenAt) : null,
         metadataCoords: exifCoordinates(asset.exif),
         details: EMPTY_ARTIFACT_DETAILS,
@@ -172,7 +152,6 @@ export async function uploadAssetsToAlbum({
     onProgress?.(i + 1, artifacts.length);
 
     const isVideo = asset.type === 'video';
-    const date = normalizePartialDate(details.date);
     const { error: insertError } = await supabase.from('artifacts').insert({
       id: artifactId,
       uploaded_by: userId,
@@ -183,15 +162,7 @@ export async function uploadAssetsToAlbum({
       original_content_type: contentType,
       file_size_bytes: asset.fileSize ?? 0,
       taken_at: exifTakenAt(asset),
-      date_year: date.year,
-      date_month: date.month,
-      date_day: date.day,
-      caption: details.caption.trim() || null,
-      location_name: details.location?.name || null,
-      location_address: details.location?.address ?? null,
-      location_place_id: details.location?.placeId ?? null,
-      location_lat: details.location?.lat ?? null,
-      location_lng: details.location?.lng ?? null,
+      ...detailsToColumns(details),
     });
 
     if (insertError) {

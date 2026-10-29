@@ -32,7 +32,7 @@ import GlassIconButton from '@/components/GlassIconButton';
 import LocationField from '@/components/LocationField';
 import PartialDateField from '@/components/PartialDateField';
 import { finishDetailsSession, getDetailsSession } from '@/lib/artifact-details-session';
-import type { ArtifactDetails, SelectedArtifact } from '@/lib/upload-artifacts';
+import type { ArtifactDetails, DetailsItem } from '@/lib/artifact-details';
 
 const CARD_WIDTH_RATIO = 0.85;
 const CARD_GAP = 14;
@@ -62,7 +62,7 @@ const DetailsCard = memo(function DetailsCard({
   onSaved,
   onFocusCard,
 }: {
-  item: SelectedArtifact;
+  item: DetailsItem;
   index: number;
   isActive: boolean;
   cardWidth: number;
@@ -139,7 +139,7 @@ const DetailsCard = memo(function DetailsCard({
                 transition={200}
               />
             ) : null}
-            {item.asset.type === 'video' && (
+            {item.isVideo && (
               <View style={{ position: 'absolute', left: 10, bottom: 10 }}>
                 <SquarePlay size={20} color="#FFFFFF" />
               </View>
@@ -208,8 +208,9 @@ export default function ArtifactDetailsScreen() {
   const { width, height: windowHeight } = useWindowDimensions();
 
   const [session] = useState(() => getDetailsSession());
+  const isEdit = session?.mode === 'edit';
   // Cards still waiting to be saved. Saved cards leave this list.
-  const [pending, setPending] = useState<SelectedArtifact[]>(() => session?.artifacts ?? []);
+  const [pending, setPending] = useState<DetailsItem[]>(() => session?.artifacts ?? []);
   const [index, setIndex] = useState(0);
   const [carouselHeight, setCarouselHeight] = useState(0);
   const savedRef = useRef(new Map<string, ArtifactDetails>());
@@ -237,7 +238,7 @@ export default function ArtifactDetailsScreen() {
   );
   const total = session?.artifacts.length ?? 0;
 
-  const finish = useCallback((result: SelectedArtifact[] | null) => {
+  const finish = useCallback((result: DetailsItem[] | null) => {
     finishedRef.current = true;
     finishDetailsSession(result);
     router.back();
@@ -314,8 +315,10 @@ export default function ArtifactDetailsScreen() {
       return;
     }
     Alert.alert(
-      'Discard upload?',
-      'The selected artifacts and any details you added will be lost.',
+      isEdit ? 'Discard changes?' : 'Discard upload?',
+      isEdit
+        ? "Your edits to this artifact won't be saved."
+        : 'The selected artifacts and any details you added will be lost.',
       [
         { text: 'Keep Editing', style: 'cancel' },
         { text: 'Discard', style: 'destructive', onPress: () => finish(null) },
@@ -329,12 +332,15 @@ export default function ArtifactDetailsScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <GlassIconButton onPress={handleCancel} accessibilityLabel="Cancel upload">
+        <GlassIconButton
+          onPress={handleCancel}
+          accessibilityLabel={isEdit ? 'Cancel editing' : 'Cancel upload'}
+        >
           <X size={20} color="#FFFFFF" />
         </GlassIconButton>
         <View style={{ alignItems: 'center' }}>
           <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 17, fontWeight: '600' }}>
-            Add Details
+            {isEdit ? 'Edit Details' : 'Add Details'}
           </Text>
           {total > 1 && (
             <Text style={{ color: '#737373', fontSize: 13, marginTop: 2 }}>
@@ -342,15 +348,20 @@ export default function ArtifactDetailsScreen() {
             </Text>
           )}
         </View>
-        <Pressable
-          onPress={finishWithSaved}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityHint="Uploads everything without filling in the remaining cards"
-          style={{ width: 44, alignItems: 'flex-end' }}
-        >
-          <Text style={{ color: '#A3A3A3', fontSize: 16, fontWeight: '500' }}>Skip</Text>
-        </Pressable>
+        {isEdit ? (
+          // Keeps the title centred; editing has nothing to skip.
+          <View style={{ width: 44 }} />
+        ) : (
+          <Pressable
+            onPress={finishWithSaved}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityHint="Uploads everything without filling in the remaining cards"
+            style={{ width: 44, alignItems: 'flex-end' }}
+          >
+            <Text style={{ color: '#A3A3A3', fontSize: 16, fontWeight: '500' }}>Skip</Text>
+          </Pressable>
+        )}
       </View>
 
       <KeyboardAvoidingView
