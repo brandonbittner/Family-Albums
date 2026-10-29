@@ -184,6 +184,12 @@ export default function PartialDateField({
             <Text style={{ color: '#60A5FA', fontWeight: '600' }}>Use this</Text>
           </Text>
         </Pressable>
+      ) : metadata !== null ? (
+        // Hold the suggestion's line while it's hidden (the date matches it),
+        // so the card doesn't resize as the date changes.
+        <Text style={styles.hint} accessibilityElementsHidden importantForAccessibility="no">
+          {' '}
+        </Text>
       ) : null}
 
       {/* ── Month / day picker sheet ── */}
@@ -339,7 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  hint: { color: '#737373', fontSize: 13, paddingHorizontal: 4 },
+  hint: { color: '#737373', fontSize: 13, lineHeight: 18, paddingHorizontal: 4 },
   sheetBody: { paddingHorizontal: 16, paddingTop: 10 },
   sheetTitle: {
     color: 'rgba(255,255,255,0.85)',

@@ -168,9 +168,18 @@ function PhotoTownSuggestion({
     );
   }
 
+  // While the town is loading, or hidden because the field already matches it,
+  // hold its line so the card doesn't resize when it appears or disappears.
+  const placeholder = (
+    <Text style={styles.hint} accessibilityElementsHidden importantForAccessibility="no">
+      {' '}
+    </Text>
+  );
+
+  if (lookup.status === 'loading') return placeholder;
   if (lookup.status !== 'found') return null;
   const { town } = lookup;
-  if (value && value.placeId === null && value.name === town) return null;
+  if (value && value.placeId === null && value.name === town) return placeholder;
 
   return (
     <Pressable
@@ -353,7 +362,7 @@ function ResultRow({
 const styles = StyleSheet.create({
   text: { color: '#F5F5F5', fontSize: 16 },
   // Matches the date field's metadata suggestion.
-  hint: { color: '#737373', fontSize: 13, paddingHorizontal: 4 },
+  hint: { color: '#737373', fontSize: 13, lineHeight: 18, paddingHorizontal: 4 },
   hintLink: { color: '#60A5FA', fontWeight: '600' },
   subtext: { color: '#737373', fontSize: 13, marginTop: 1 },
   clearBtn: {
