@@ -167,6 +167,7 @@ const DetailsCard = memo(function DetailsCard({
             <LocationField
               value={details.location}
               onChange={(location) => onChange(item.key, { location })}
+              metadataCoords={item.metadataCoords}
               disabled={saving}
               style={[styles.field, styles.row]}
             />

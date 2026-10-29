@@ -16,6 +16,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import DraggableSheet, { SheetDragArea } from '@/components/DraggableSheet';
 import {
+  canLookUpTown,
+  lookupTown,
+  requestTownLookupPermission,
+  type Coordinates,
+} from '@/lib/photo-location';
+import {
   customLocation,
   getPlaceDetails,
   searchPlaces,
@@ -33,11 +39,14 @@ const MIN_QUERY_LENGTH = 2;
 export default function LocationField({
   value,
   onChange,
+  metadataCoords,
   disabled,
   style,
 }: {
   value: ArtifactLocation | null;
   onChange: (location: ArtifactLocation | null) => void;
+  /** GPS position from the file's metadata, offered as a town-level suggestion. */
+  metadataCoords: Coordinates | null;
   disabled?: boolean;
   /** Style for the field container, so it matches sibling inputs. */
   style?: StyleProp<ViewStyle>;
@@ -47,7 +56,7 @@ export default function LocationField({
   const [openCount, setOpenCount] = useState(0);
 
   return (
-    <>
+    <View style={{ gap: 6 }}>
       <Pressable
         onPress={() => {
           setOpenCount((n) => n + 1);
@@ -76,6 +85,10 @@ export default function LocationField({
         )}
       </Pressable>
 
+      {metadataCoords && !disabled && (
+        <PhotoTownSuggestion coords={metadataCoords} value={value} onUse={onChange} />
+      )}
+
       <DraggableSheet
         visible={open}
         onClose={() => setOpen(false)}
@@ -94,7 +107,84 @@ export default function LocationField({
           }}
         />
       </DraggableSheet>
-    </>
+    </View>
+  );
+}
+
+type TownLookup =
+  | { status: 'loading' }
+  | { status: 'needsPermission' }
+  | { status: 'found'; town: string }
+  | { status: 'none' };
+
+/**
+ * "Photo metadata says near Kennett Square, PA · Use this", from the phone's
+ * built-in reverse geocoder. Deliberately town-level — for anything more
+ * specific the user searches.
+ */
+function PhotoTownSuggestion({
+  coords,
+  value,
+  onUse,
+}: {
+  coords: Coordinates;
+  value: ArtifactLocation | null;
+  onUse: (location: ArtifactLocation) => void;
+}) {
+  const [lookup, setLookup] = useState<TownLookup>({ status: 'loading' });
+
+  const runLookup = (isCancelled: () => boolean) =>
+    lookupTown(coords).then((town) => {
+      if (!isCancelled()) setLookup(town ? { status: 'found', town } : { status: 'none' });
+    });
+
+  useEffect(() => {
+    let cancelled = false;
+    canLookUpTown().then((allowed) => {
+      if (cancelled) return;
+      if (allowed) runLookup(() => cancelled);
+      else setLookup({ status: 'needsPermission' });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- look up once per photo position
+  }, [coords.lat, coords.lng]);
+
+  // Android only: the OS geocoder needs location permission, so ask on tap.
+  const handleLookUp = async () => {
+    setLookup({ status: 'loading' });
+    if (await requestTownLookupPermission()) await runLookup(() => false);
+    else setLookup({ status: 'none' });
+  };
+
+  if (lookup.status === 'needsPermission') {
+    return (
+      <Pressable onPress={handleLookUp} hitSlop={6} accessibilityRole="button">
+        <Text style={styles.hint}>
+          Photo has location metadata · <Text style={styles.hintLink}>Look up town</Text>
+        </Text>
+      </Pressable>
+    );
+  }
+
+  if (lookup.status !== 'found') return null;
+  const { town } = lookup;
+  if (value && value.placeId === null && value.name === town) return null;
+
+  return (
+    <Pressable
+      onPress={() =>
+        onUse({ name: town, address: null, placeId: null, lat: coords.lat, lng: coords.lng })
+      }
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityHint="Fills the location from the photo's metadata"
+    >
+      <Text style={styles.hint}>
+        Photo metadata says near {town} · <Text style={styles.hintLink}>Use this</Text>
+      </Text>
+    </Pressable>
   );
 }
 
@@ -262,6 +352,9 @@ function ResultRow({
 
 const styles = StyleSheet.create({
   text: { color: '#F5F5F5', fontSize: 16 },
+  // Matches the date field's metadata suggestion.
+  hint: { color: '#737373', fontSize: 13, paddingHorizontal: 4 },
+  hintLink: { color: '#60A5FA', fontWeight: '600' },
   subtext: { color: '#737373', fontSize: 13, marginTop: 1 },
   clearBtn: {
     width: 22,

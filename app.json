@@ -31,7 +31,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Family Albums uses location access only to look up the town a photo was taken in."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

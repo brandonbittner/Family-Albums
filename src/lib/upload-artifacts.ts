@@ -5,6 +5,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 
 import { extractDominantColors } from './color-extract';
 import { EMPTY_PARTIAL_DATE, normalizePartialDate, type PartialDate } from './partial-date';
+import { exifCoordinates, type Coordinates } from './photo-location';
 import type { ArtifactLocation } from './places';
 import { uploadArtifact, type ContentType } from './storage';
 import { supabase } from './supabase';
@@ -26,6 +27,8 @@ export type SelectedArtifact = {
   previewUri: string | null;
   /** Capture time from the file's EXIF data — offered to the user, never assumed. */
   metadataDate: Date | null;
+  /** GPS position from the file's EXIF data — offered as a town, never assumed. */
+  metadataCoords: Coordinates | null;
   details: ArtifactDetails;
 };
 
@@ -126,6 +129,7 @@ export async function toSelectedArtifacts(assets: PickedAsset[]): Promise<Select
         asset,
         previewUri,
         metadataDate: takenAt ? new Date(takenAt) : null,
+        metadataCoords: exifCoordinates(asset.exif),
         details: EMPTY_ARTIFACT_DETAILS,
       };
     }),
