@@ -24,11 +24,13 @@ import {
   FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getArtifactList, type ArtifactEntry } from '@/lib/artifact-store';
@@ -114,10 +116,16 @@ export default function ArtifactScreen() {
     contentType: string;
   }>();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height: windowHeight } = useWindowDimensions();
 
   const { artifacts, initialIndex } = getArtifactList();
   const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  // Each artifact starts with its caption collapsed.
+  useEffect(() => {
+    setCaptionExpanded(false);
+  }, [activeIndex]);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -318,9 +326,7 @@ export default function ArtifactScreen() {
                     }}
                   >
                     <Download size={20} color="#F5F5F5" />
-                    <Text style={{ color: '#F5F5F5', fontSize: 16, marginLeft: 14 }}>
-                      Download Artifact
-                    </Text>
+                    <Text style={{ color: '#F5F5F5', fontSize: 16, marginLeft: 14 }}>Download</Text>
                   </View>
                 )}
               </Pressable>
@@ -338,9 +344,7 @@ export default function ArtifactScreen() {
                     }}
                   >
                     <Trash2 size={20} color="#EF4444" />
-                    <Text style={{ color: '#EF4444', fontSize: 16, marginLeft: 14 }}>
-                      Delete Artifact
-                    </Text>
+                    <Text style={{ color: '#EF4444', fontSize: 16, marginLeft: 14 }}>Delete</Text>
                   </View>
                 )}
               </Pressable>
@@ -355,12 +359,19 @@ export default function ArtifactScreen() {
         <>
           {/* Darkens the bottom of the photo so white text reads on bright images. */}
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.65)']}
-            style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 260 }}
+            colors={['transparent', captionExpanded ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.65)']}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: captionExpanded ? windowHeight * 0.75 : 260,
+            }}
             pointerEvents="none"
           />
-          <View
-            pointerEvents="none"
+          <Animated.View
+            pointerEvents="box-none"
+            layout={detailsLayout}
             style={{
               position: 'absolute',
               left: 24,
@@ -370,7 +381,7 @@ export default function ArtifactScreen() {
             }}
           >
             {!!(currentArtifact.dateLabel || currentArtifact.locationName) && (
-              <View style={styles.metaRow}>
+              <View style={styles.metaRow} pointerEvents="none">
                 {!!currentArtifact.dateLabel && (
                   <View style={styles.metaItem}>
                     <Calendar size={15} color="rgba(255,255,255,0.75)" />
@@ -388,16 +399,79 @@ export default function ArtifactScreen() {
               </View>
             )}
             {currentArtifact.caption ? (
-              <Text style={styles.caption} numberOfLines={4}>
-                {currentArtifact.caption}
-              </Text>
+              <ExpandableCaption
+                text={currentArtifact.caption}
+                expanded={captionExpanded}
+                onToggle={() => setCaptionExpanded((v) => !v)}
+                maxExpandedHeight={windowHeight * 0.45}
+              />
             ) : null}
-          </View>
+          </Animated.View>
         </>
       ) : null}
 
       {/* ── Bottom action bar ── */}
       <BottomActionBar insets={insets} />
+    </View>
+  );
+}
+
+const CAPTION_COLLAPSED_LINES = 4;
+const detailsLayout = LinearTransition.duration(220);
+
+/**
+ * Caption clipped to a few lines; when it's actually cut off, tapping it shows
+ * the whole thing (scrollable if very long) and tapping again collapses it.
+ */
+function ExpandableCaption({
+  text,
+  expanded,
+  onToggle,
+  maxExpandedHeight,
+}: {
+  text: string;
+  expanded: boolean;
+  onToggle: () => void;
+  maxExpandedHeight: number;
+}) {
+  const [truncatable, setTruncatable] = useState(false);
+
+  return (
+    <View>
+      {/* Invisible full-length copy, measured to tell whether the visible one is cut off. */}
+      <Text
+        style={[styles.caption, styles.captionMeasure]}
+        onTextLayout={(e) => setTruncatable(e.nativeEvent.lines.length > CAPTION_COLLAPSED_LINES)}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        {text}
+      </Text>
+
+      {expanded ? (
+        <ScrollView style={{ maxHeight: maxExpandedHeight }} showsVerticalScrollIndicator={false}>
+          <Pressable
+            onPress={onToggle}
+            accessibilityRole="button"
+            accessibilityHint="Collapses the caption"
+          >
+            <Text style={styles.caption}>{text}</Text>
+          </Pressable>
+        </ScrollView>
+      ) : (
+        // Short captions ignore touches so swipes over them still page the viewer.
+        <Pressable
+          onPress={onToggle}
+          disabled={!truncatable}
+          pointerEvents={truncatable ? 'auto' : 'none'}
+          accessibilityRole={truncatable ? 'button' : undefined}
+          accessibilityHint={truncatable ? 'Shows the full caption' : undefined}
+        >
+          <Text style={styles.caption} numberOfLines={CAPTION_COLLAPSED_LINES}>
+            {text}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -561,6 +635,7 @@ const barStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  captionMeasure: { position: 'absolute', left: 0, right: 0, opacity: 0 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: {
