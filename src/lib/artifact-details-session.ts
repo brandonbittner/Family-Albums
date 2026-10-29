@@ -6,15 +6,8 @@ import type { DetailsItem } from './artifact-details';
 // and EXIF) are too large for route params, so — like artifact-store — they
 // live in module state for the duration of one details session.
 
-/**
- * 'upload': cards for freshly picked artifacts, with Skip to upload the rest as-is.
- * 'edit': a card for an existing artifact; no Skip, cancelling discards edits.
- */
-export type DetailsMode = 'upload' | 'edit';
-
 export type DetailsSession = {
   artifacts: DetailsItem[];
-  mode: DetailsMode;
   resolve: (result: DetailsItem[] | null) => void;
 };
 
@@ -25,14 +18,11 @@ let _session: DetailsSession | null = null;
  * same items (saved cards carry the user's details, the rest keep theirs),
  * or null if the user cancelled.
  */
-export function collectArtifactDetails<T extends DetailsItem>(
-  artifacts: T[],
-  { mode = 'upload' }: { mode?: DetailsMode } = {},
-): Promise<T[] | null> {
+export function collectArtifactDetails<T extends DetailsItem>(artifacts: T[]): Promise<T[] | null> {
   _session?.resolve(null);
   return new Promise((resolve) => {
     // The screen only ever hands back the items it was given, with new details.
-    _session = { artifacts, mode, resolve: resolve as DetailsSession['resolve'] };
+    _session = { artifacts, resolve: resolve as DetailsSession['resolve'] };
     router.push('/artifact-details');
   });
 }

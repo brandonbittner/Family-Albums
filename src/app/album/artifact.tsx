@@ -24,6 +24,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,8 +35,13 @@ import {
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { collectArtifactDetails } from '@/lib/artifact-details-session';
-import { detailsFromRow, saveArtifactDetails } from '@/lib/artifact-details';
+import EditArtifactOverlay from '@/components/EditArtifactOverlay';
+import {
+  detailsFromRow,
+  saveArtifactDetails,
+  type ArtifactDetails,
+  type DetailsItem,
+} from '@/lib/artifact-details';
 import { getArtifactList, type ArtifactEntry } from '@/lib/artifact-store';
 import { formatPartialDate } from '@/lib/partial-date';
 import { supabase } from '@/lib/supabase';
@@ -133,6 +139,8 @@ export default function ArtifactScreen() {
     setCaptionExpanded(false);
   }, [activeIndex]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuDismissedRef = useRef<(() => void) | null>(null);
+  const [editItem, setEditItem] = useState<DetailsItem | null>(null);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0 && viewableItems[0].index != null) {
@@ -176,16 +184,22 @@ export default function ArtifactScreen() {
   };
 
   const handleEdit = async () => {
-    setMenuOpen(false);
     if (!currentArtifact) return;
     const artifactId = currentArtifact.id;
+    // iOS can't present the edit overlay while the menu modal is still
+    // animating away, so wait for it to finish closing (with a fallback).
+    const menuClosed = new Promise<void>((resolve) => {
+      if (Platform.OS !== 'ios') return resolve();
+      menuDismissedRef.current = resolve;
+      setTimeout(resolve, 600);
+    });
+    setMenuOpen(false);
 
     // Load the full row — the viewer only carries display-ready fields.
-    const { data: row, error } = await supabase
-      .from('artifacts')
-      .select('*')
-      .eq('id', artifactId)
-      .single();
+    const [{ data: row, error }] = await Promise.all([
+      supabase.from('artifacts').select('*').eq('id', artifactId).single(),
+      menuClosed,
+    ]);
     if (error || !row) {
       console.error('[ArtifactScreen] load for edit failed:', error);
       Alert.alert('Error', "Couldn't load this artifact's details.");
@@ -199,31 +213,26 @@ export default function ArtifactScreen() {
       'image/jpeg',
     ).catch(() => null);
 
-    const result = await collectArtifactDetails(
-      [
-        {
-          key: artifactId,
-          previewUri,
-          isVideo,
-          metadataDate: row.taken_at ? new Date(row.taken_at) : null,
-          // The photo's own GPS isn't kept after upload, so there's no town to suggest.
-          metadataCoords: null,
-          details: detailsFromRow(row),
-        },
-      ],
-      { mode: 'edit' },
-    );
-    if (!result) return;
-    const { details } = result[0];
+    setEditItem({
+      key: artifactId,
+      previewUri,
+      isVideo,
+      metadataDate: row.taken_at ? new Date(row.taken_at) : null,
+      // The photo's own GPS isn't kept after upload, so there's no town to suggest.
+      metadataCoords: null,
+      details: detailsFromRow(row),
+    });
+  };
 
+  const handleSaveEdit = async (details: ArtifactDetails) => {
+    if (!editItem) return;
+    const artifactId = editItem.key;
     try {
       await saveArtifactDetails(artifactId, details);
     } catch (e) {
       console.error('[ArtifactScreen] saveArtifactDetails failed:', e);
-      Alert.alert('Error', "Couldn't save your changes. Please try again.");
-      return;
+      throw e;
     }
-
     setArtifacts((prev) =>
       prev.map((a) =>
         a.id === artifactId
@@ -352,6 +361,10 @@ export default function ArtifactScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setMenuOpen(false)}
+        onDismiss={() => {
+          menuDismissedRef.current?.();
+          menuDismissedRef.current = null;
+        }}
       >
         <Pressable
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
@@ -498,6 +511,13 @@ export default function ArtifactScreen() {
           </Animated.View>
         </>
       ) : null}
+
+      {/* ── Edit overlay ── */}
+      <EditArtifactOverlay
+        item={editItem}
+        onClose={() => setEditItem(null)}
+        onSave={handleSaveEdit}
+      />
 
       {/* ── Bottom action bar ── */}
       <BottomActionBar insets={insets} />
