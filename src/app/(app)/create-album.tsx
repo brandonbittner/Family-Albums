@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { collectArtifactDetails } from '@/lib/artifact-details-session';
 import { supabase } from '@/lib/supabase';
 import {
+  askToRetryUploads,
   pickArtifacts,
   toSelectedArtifacts,
   uploadAssetsToAlbum,
@@ -109,17 +110,20 @@ export default function CreateAlbumScreen() {
       return;
     }
 
-    let failed = 0;
-    const total = selected.length;
-    if (total > 0) {
-      setUploadProgress({ current: 0, total });
-      ({ failed } = await uploadAssetsToAlbum({
+    // Offer retries here, before leaving, so the progress bar stays visible.
+    // Retrying only re-sends the artifacts that failed last time.
+    let pending = selected;
+    while (pending.length > 0) {
+      setUploadProgress({ current: 0, total: pending.length });
+      const { failed } = await uploadAssetsToAlbum({
         albumId,
         userId: user.id,
-        artifacts: selected,
+        artifacts: pending,
         onProgress: (current, count) => setUploadProgress({ current, total: count }),
-      }));
+      });
       setUploadProgress(null);
+      if (failed.length === 0 || !(await askToRetryUploads(failed.length, pending.length))) break;
+      pending = failed;
     }
 
     setSubmitting(false);
@@ -127,10 +131,6 @@ export default function CreateAlbumScreen() {
     resetForm();
     router.back();
     router.push({ pathname: '/album/[id]', params: { id: albumId } });
-
-    if (failed > 0) {
-      Alert.alert('Upload finished', `${total - failed} succeeded, ${failed} failed.`);
-    }
   };
 
   const allTiles: (SelectedArtifact | 'add')[] = ['add', ...selected];

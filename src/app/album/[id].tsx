@@ -41,7 +41,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/use-auth';
 import { getArtifactUrls, type Variant } from '@/lib/storage';
 import { collectArtifactDetails } from '@/lib/artifact-details-session';
-import { pickArtifacts, toSelectedArtifacts, uploadAssetsToAlbum } from '@/lib/upload-artifacts';
+import {
+  askToRetryUploads,
+  pickArtifacts,
+  toSelectedArtifacts,
+  uploadAssetsToAlbum,
+} from '@/lib/upload-artifacts';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 
@@ -110,6 +115,9 @@ export default function AlbumScreen() {
   }, [viewMode, viewToggleAnim]);
 
   // Grid order only — the cover image and gradient keep using `artifacts[0]`.
+  // TODO: add separate sort/filter options for date added (created_at) and the
+  //       artifact's own date (date_year/date_month/date_day, which may be partial).
+  //       Sorting stays on date added until then.
   const sortedArtifacts = useMemo(() => {
     const dir = sortOrder === 'oldest' ? 1 : -1;
     return [...artifacts].sort(
@@ -218,19 +226,22 @@ export default function AlbumScreen() {
     const artifacts = await collectArtifactDetails(await toSelectedArtifacts(assets));
     if (!artifacts) return;
 
-    setUploadProgress({ current: 0, total: artifacts.length });
-    const { failed } = await uploadAssetsToAlbum({
-      albumId: id,
-      userId: user.id,
-      artifacts,
-      onProgress: (current, total) => setUploadProgress({ current, total }),
-    });
-
-    setUploadProgress(null);
-    if (failed > 0) {
-      Alert.alert('Upload finished', `${artifacts.length - failed} succeeded, ${failed} failed.`);
+    // Retrying only re-sends the artifacts that failed last time.
+    let pending = artifacts;
+    while (pending.length > 0) {
+      setUploadProgress({ current: 0, total: pending.length });
+      const { failed } = await uploadAssetsToAlbum({
+        albumId: id,
+        userId: user.id,
+        artifacts: pending,
+        onProgress: (current, total) => setUploadProgress({ current, total }),
+      });
+      setUploadProgress(null);
+      // Show whatever did upload before asking about the rest.
+      fetchArtifacts();
+      if (failed.length === 0 || !(await askToRetryUploads(failed.length, pending.length))) break;
+      pending = failed;
     }
-    fetchArtifacts();
   };
 
   const handleOpenEdit = () => {

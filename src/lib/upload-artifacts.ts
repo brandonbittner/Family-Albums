@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { Alert } from 'react-native';
 
 import { detailsToColumns, EMPTY_ARTIFACT_DETAILS, type DetailsItem } from './artifact-details';
 import { extractDominantColors } from './color-extract';
@@ -15,7 +16,14 @@ export type PickedAsset = ImagePicker.ImagePickerAsset;
  * A picked asset ready for the details screen and upload. Its preview is the
  * asset itself for photos, or an extracted frame for videos.
  */
-export type SelectedArtifact = DetailsItem & { asset: PickedAsset };
+export type SelectedArtifact = DetailsItem & {
+  asset: PickedAsset;
+  /**
+   * Set on the first upload attempt, so retrying a failed upload reuses the
+   * same artifact row and storage folder instead of leaving a stray one behind.
+   */
+  artifactId?: string;
+};
 
 function toContentType(raw: string): ContentType {
   switch (raw) {
@@ -118,6 +126,7 @@ export async function toSelectedArtifacts(assets: PickedAsset[]): Promise<Select
 
 /**
  * Uploads picked artifacts and attaches them to an album, one at a time.
+ * Returns the artifacts that failed, ready to pass back in to retry them.
  * Each asset gets an `artifacts` row, its variants uploaded to storage, and an
  * `album_artifacts` link. Returns how many assets failed.
  */
@@ -131,7 +140,7 @@ export async function uploadAssetsToAlbum({
   userId: string;
   artifacts: SelectedArtifact[];
   onProgress?: (current: number, total: number) => void;
-}): Promise<{ failed: number }> {
+}): Promise<{ failed: SelectedArtifact[] }> {
   // Check if the album currently has no artifacts so we know whether the
   // first item in this batch will become the first-ordered image.
   // TODO: when users can select cover images, run color extraction only for
@@ -142,17 +151,22 @@ export async function uploadAssetsToAlbum({
     .eq('album_id', albumId);
   const isFirstInAlbum = (existingCount ?? 0) === 0;
 
-  let failed = 0;
+  const failed: SelectedArtifact[] = [];
 
   for (let i = 0; i < artifacts.length; i++) {
-    const { asset, details } = artifacts[i];
-    const artifactId = Crypto.randomUUID();
+    const { asset, details, metadataCoords } = artifacts[i];
+    const artifactId = artifacts[i].artifactId ?? Crypto.randomUUID();
+    const fail = (stage: string, e: unknown) => {
+      console.error(`[uploadAssetsToAlbum] ${stage} failed:`, e);
+      failed.push({ ...artifacts[i], artifactId });
+    };
     const contentType = toContentType(asset.mimeType ?? '');
 
     onProgress?.(i + 1, artifacts.length);
 
     const isVideo = asset.type === 'video';
-    const { error: insertError } = await supabase.from('artifacts').insert({
+    // Upsert so a retry of a partly-uploaded artifact reuses its row.
+    const { error: insertError } = await supabase.from('artifacts').upsert({
       id: artifactId,
       uploaded_by: userId,
       media_type: isVideo ? 'video' : 'photo',
@@ -162,12 +176,13 @@ export async function uploadAssetsToAlbum({
       original_content_type: contentType,
       file_size_bytes: asset.fileSize ?? 0,
       taken_at: exifTakenAt(asset),
+      metadata_lat: metadataCoords?.lat ?? null,
+      metadata_lng: metadataCoords?.lng ?? null,
       ...detailsToColumns(details),
     });
 
     if (insertError) {
-      console.error('[uploadAssetsToAlbum] artifact insert failed:', insertError);
-      failed++;
+      fail('artifact insert', insertError);
       continue;
     }
 
@@ -209,27 +224,54 @@ export async function uploadAssetsToAlbum({
           ? await extractDominantColors(thumbUri, 5).catch(() => null)
           : null;
 
-      await Promise.all([
-        supabase
-          .from('artifacts')
-          .update({
-            status: 'ready',
-            ...(dominantColors ? { dominant_colors: dominantColors } : {}),
-          })
-          .eq('id', artifactId),
-        supabase.from('album_artifacts').insert({
+      // Supabase returns errors rather than throwing, so check each one —
+      // otherwise an artifact can report success but never appear in the album.
+      const { error: readyError } = await supabase
+        .from('artifacts')
+        .update({
+          status: 'ready',
+          ...(dominantColors ? { dominant_colors: dominantColors } : {}),
+        })
+        .eq('id', artifactId);
+      if (readyError) throw readyError;
+
+      const { error: linkError } = await supabase.from('album_artifacts').upsert(
+        {
           album_id: albumId,
           artifact_id: artifactId,
           position: Date.now() + i,
           added_by: userId,
-        }),
-      ]);
+        },
+        { onConflict: 'album_id,artifact_id' },
+      );
+      if (linkError) throw linkError;
     } catch (e) {
-      console.error('[uploadAssetsToAlbum] upload failed:', e);
+      fail('upload', e);
       await supabase.from('artifacts').update({ status: 'failed' }).eq('id', artifactId);
-      failed++;
     }
   }
 
   return { failed };
+}
+
+/**
+ * Tells the user how many uploads failed and offers to retry them. Resolves
+ * true if they chose Retry.
+ */
+export function askToRetryUploads(failedCount: number, attempted: number): Promise<boolean> {
+  const allFailed = failedCount === attempted;
+  return new Promise((resolve) => {
+    Alert.alert(
+      allFailed ? 'Upload failed' : 'Some uploads failed',
+      allFailed
+        ? `${attempted === 1 ? 'The artifact' : `All ${attempted} artifacts`} couldn't be uploaded.`
+        : `${failedCount} of ${attempted} artifacts couldn't be uploaded.`,
+      [
+        { text: 'Not Now', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Retry', onPress: () => resolve(true) },
+      ],
+      // Android: tapping outside the dialog dismisses it.
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
 }

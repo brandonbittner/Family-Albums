@@ -21,6 +21,8 @@ function rowWith(columns: ReturnType<typeof detailsToColumns>): ArtifactRow {
     updated_at: '',
     deleted_at: null,
     dominant_colors: null,
+    metadata_lat: null,
+    metadata_lng: null,
     ...columns,
   };
 }

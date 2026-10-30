@@ -218,8 +218,10 @@ export default function ArtifactScreen() {
       previewUri,
       isVideo,
       metadataDate: row.taken_at ? new Date(row.taken_at) : null,
-      // The photo's own GPS isn't kept after upload, so there's no town to suggest.
-      metadataCoords: null,
+      metadataCoords:
+        row.metadata_lat !== null && row.metadata_lng !== null
+          ? { lat: row.metadata_lat, lng: row.metadata_lng }
+          : null,
       details: detailsFromRow(row),
     });
   };

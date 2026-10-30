@@ -133,6 +133,8 @@ export type Database = {
           location_name: string | null;
           location_place_id: string | null;
           media_type: Database['public']['Enums']['media_type'];
+          metadata_lat: number | null;
+          metadata_lng: number | null;
           original_content_type: string;
           status: Database['public']['Enums']['artifact_status'];
           taken_at: string | null;
@@ -158,6 +160,8 @@ export type Database = {
           location_name?: string | null;
           location_place_id?: string | null;
           media_type: Database['public']['Enums']['media_type'];
+          metadata_lat?: number | null;
+          metadata_lng?: number | null;
           original_content_type: string;
           status?: Database['public']['Enums']['artifact_status'];
           taken_at?: string | null;
@@ -183,6 +187,8 @@ export type Database = {
           location_name?: string | null;
           location_place_id?: string | null;
           media_type?: Database['public']['Enums']['media_type'];
+          metadata_lat?: number | null;
+          metadata_lng?: number | null;
           original_content_type?: string;
           status?: Database['public']['Enums']['artifact_status'];
           taken_at?: string | null;
