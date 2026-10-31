@@ -2,7 +2,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { Plus, Search, X } from 'lucide-react-native';
+import { Bell, Plus, Search, X } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
 import {
   Animated,
@@ -471,8 +471,49 @@ export default function AlbumsScreen() {
           </BlurView>
         </Animated.View>
 
-        {/* Profile avatar */}
-        <Animated.View style={{ opacity: avatarOpacity, transform: [{ scale: avatarScale }] }}>
+        {/* Notifications + profile avatar — fade out together while search is open */}
+        <Animated.View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            opacity: avatarOpacity,
+            transform: [{ scale: avatarScale }],
+          }}
+        >
+          {/* Matches the collapsed search circle */}
+          <Pressable
+            onPress={() => {
+              // TODO: open the notifications screen (album invites, new artifacts, etc.)
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.15)',
+              }}
+            >
+              <BlurView
+                intensity={20}
+                tint="systemUltraThinMaterialDark"
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <View
+                  style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
+                />
+                <Bell size={18} color="#F5F5F5" />
+                {/* TODO: show an unread badge when there are new notifications */}
+              </BlurView>
+            </View>
+          </Pressable>
+
           <Pressable
             onPress={() => router.push('/(app)/profile')}
             accessibilityRole="button"

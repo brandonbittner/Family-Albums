@@ -20,6 +20,7 @@ import {
   Plus,
   SquarePlay,
   Trash2,
+  Users,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -340,6 +341,15 @@ export default function AlbumScreen() {
             <ArrowLeft size={20} color="#FFFFFF" />
           </GlassIconButton>
 
+          {/* Members button — mirrors the pencil button's spacing on the right */}
+          <GlassIconButton
+            style={{ position: 'absolute', top: insets.top + 8, left: 68 }}
+            onPress={() => router.push({ pathname: '/album/members', params: { id } })}
+            accessibilityLabel="Album members"
+          >
+            <Users size={18} color="#FFFFFF" />
+          </GlassIconButton>
+
           {/* Stats row — centered in nav bar */}
           {!artifactsLoading && (
             <View
@@ -506,6 +516,10 @@ export default function AlbumScreen() {
         </View>
 
         {/* ── Artifacts (grid or list) ── */}
+        {/* TODO: clean up the empty state — an album with no artifacts currently just
+            renders the normal grid/list with only the Upload Artifacts tile (plus the
+            sort and view controls). Design a dedicated empty state with a clear prompt
+            to add the first artifacts. */}
         {artifactsLoading ? (
           <ActivityIndicator color="#A3A3A3" style={{ marginTop: 60 }} />
         ) : viewMode === 'list' ? (
