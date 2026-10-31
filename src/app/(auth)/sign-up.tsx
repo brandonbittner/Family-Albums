@@ -1,38 +1,40 @@
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert } from 'react-native';
 
+import AuthForm, { AuthInput } from '@/components/AuthForm';
 import { useAuth } from '@/hooks/use-auth';
+
+const MIN_PASSWORD_LENGTH = 6;
 
 export default function SignUpScreen() {
   const { signUp } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!email || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+    if (!name.trim() || !email.trim() || !password) {
+      Alert.alert('Missing fields', 'Please enter your name, email and password.');
       return;
     }
-    if (password.length < 6) {
-      Alert.alert('Weak password', 'Password must be at least 6 characters.');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert('Weak password', `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     setLoading(true);
     try {
-      await signUp(email.trim(), password);
-      Alert.alert('Check your email', 'We sent you a confirmation link.');
+      const { needsConfirmation } = await signUp(email.trim(), password, name);
+      // Without confirmation the user is signed in and the auth layout
+      // redirects into the app on its own.
+      if (needsConfirmation) {
+        Alert.alert(
+          'Check your email',
+          'We sent you a link to confirm your account. Once confirmed, sign in here.',
+          [{ text: 'OK', onPress: () => router.replace('/(auth)/sign-in') }],
+        );
+      }
     } catch (err) {
       Alert.alert('Sign up failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -41,55 +43,47 @@ export default function SignUpScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View className="flex-1 justify-center px-6">
-          <Text className="text-3xl font-bold text-gray-900 mb-2">Create account</Text>
-          <Text className="text-base text-gray-500 mb-8">Get started today</Text>
-
-          <TextInput
-            className="border border-gray-300 rounded-xl px-4 py-3 mb-4 text-base text-gray-900"
-            placeholder="Email"
-            placeholderTextColor="#9ca3af"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-          />
-          <TextInput
-            className="border border-gray-300 rounded-xl px-4 py-3 mb-6 text-base text-gray-900"
-            placeholder="Password (min. 6 characters)"
-            placeholderTextColor="#9ca3af"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="new-password"
-          />
-
-          <Pressable
-            className="bg-blue-600 rounded-xl py-3.5 items-center active:opacity-80"
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white text-base font-semibold">Create Account</Text>
-            )}
-          </Pressable>
-
-          <View className="flex-row justify-center mt-6">
-            <Text className="text-gray-500">Already have an account? </Text>
-            <Link href="/(auth)/sign-in">
-              <Text className="text-blue-600 font-medium">Sign in</Text>
-            </Link>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <AuthForm
+      title="Create account"
+      subtitle="Start keeping your family's memories together"
+      submitLabel="Create Account"
+      submitting={loading}
+      onSubmit={handleSignUp}
+      footerText="Already have an account?"
+      footerLinkLabel="Sign in"
+      footerHref="/(auth)/sign-in"
+    >
+      <AuthInput
+        placeholder="Your name"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+        autoComplete="name"
+        textContentType="name"
+        maxLength={80}
+        returnKeyType="next"
+      />
+      <AuthInput
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="next"
+      />
+      <AuthInput
+        placeholder={`Password (min. ${MIN_PASSWORD_LENGTH} characters)`}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="go"
+        onSubmitEditing={handleSignUp}
+      />
+    </AuthForm>
   );
 }

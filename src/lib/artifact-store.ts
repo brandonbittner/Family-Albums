@@ -19,3 +19,8 @@ export function setArtifactList(artifacts: ArtifactEntry[], initialIndex: number
 export function getArtifactList(): { artifacts: ArtifactEntry[]; initialIndex: number } {
   return { artifacts: _artifacts, initialIndex: _initialIndex };
 }
+
+export function clearArtifactList() {
+  _artifacts = [];
+  _initialIndex = 0;
+}

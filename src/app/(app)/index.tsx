@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import UserAvatar from '@/components/UserAvatar';
 import { getArtifactUrls } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
@@ -472,7 +473,12 @@ export default function AlbumsScreen() {
 
         {/* Profile avatar */}
         <Animated.View style={{ opacity: avatarOpacity, transform: [{ scale: avatarScale }] }}>
-          <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+          <Pressable
+            onPress={() => router.push('/(app)/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
             <View
               style={{
                 width: 44,
@@ -483,12 +489,7 @@ export default function AlbumsScreen() {
                 borderColor: 'rgba(255,255,255,0.25)',
               }}
             >
-              <Image
-                // TODO: replace with real signed avatar URL from user profile
-                source={require('../../../assets/images/avatar.jpeg')}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
+              <UserAvatar size={41} />
             </View>
           </Pressable>
         </Animated.View>

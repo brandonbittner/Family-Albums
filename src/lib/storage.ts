@@ -38,6 +38,11 @@ const EVICT_BUFFER_MS = 5 * 60 * 1000;
 
 const urlCache = new Map<string, CachedUrl>();
 
+/** Drops every cached signed URL — call on sign-out. */
+export function clearArtifactUrlCache() {
+  urlCache.clear();
+}
+
 function cacheKey(artifactId: string, variant: Variant): string {
   return `${artifactId}/${variant}`;
 }
