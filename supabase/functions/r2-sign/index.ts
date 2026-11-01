@@ -74,6 +74,18 @@ Deno.serve(async (req: Request) => {
       return err(400, 'files must be a non-empty array');
     }
 
+    // The app creates the artifact row before uploading. Only its uploader may
+    // write its files, so nobody can overwrite someone else's photos.
+    const { data: artifact, error: lookupError } = await supabase
+      .from('artifacts')
+      .select('uploaded_by')
+      .eq('id', artifactId)
+      .maybeSingle();
+    if (lookupError) return err(500, 'Could not check artifact');
+    if (!artifact || artifact.uploaded_by !== user.id) {
+      return err(403, 'Not allowed to upload this artifact');
+    }
+
     const results: { variant: string; uploadUrl: string }[] = [];
 
     for (const file of files) {
@@ -138,6 +150,19 @@ Deno.serve(async (req: Request) => {
       });
 
       results.push({ artifactId, variant, url: signed.url });
+    }
+
+    // Only sign links for artifacts the caller can see: RLS on the user-scoped
+    // client limits this to their own uploads and their albums' artifacts.
+    const requestedIds = [...new Set(results.map((r) => r.artifactId))];
+    const { data: visible, error: lookupError } = await supabase
+      .from('artifacts')
+      .select('id')
+      .in('id', requestedIds);
+    if (lookupError) return err(500, 'Could not check artifacts');
+    const visibleIds = new Set((visible ?? []).map((a) => a.id));
+    if (requestedIds.some((id) => !visibleIds.has(id))) {
+      return err(403, 'Not allowed to view one or more artifacts');
     }
 
     return Response.json({ items: results });

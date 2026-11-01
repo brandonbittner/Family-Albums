@@ -155,6 +155,10 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen name="profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen
+        name="notifications"
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
+      />
       <Tabs.Screen name="create-album" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );

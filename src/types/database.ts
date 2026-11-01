@@ -78,6 +78,67 @@ export type Database = {
           },
         ];
       };
+      album_invites: {
+        Row: {
+          album_id: string;
+          created_at: string;
+          email: string;
+          id: string;
+          invited_by: string;
+        };
+        Insert: {
+          album_id: string;
+          created_at?: string;
+          email: string;
+          id?: string;
+          invited_by: string;
+        };
+        Update: {
+          album_id?: string;
+          created_at?: string;
+          email?: string;
+          id?: string;
+          invited_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'album_invites_album_id_fkey';
+            columns: ['album_id'];
+            isOneToOne: false;
+            referencedRelation: 'albums';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      album_members: {
+        Row: {
+          album_id: string;
+          joined_at: string;
+          role: string;
+          user_id: string;
+        };
+        Insert: {
+          album_id: string;
+          joined_at?: string;
+          role?: string;
+          user_id: string;
+        };
+        Update: {
+          album_id?: string;
+          joined_at?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'album_members_album_id_fkey';
+            columns: ['album_id'];
+            isOneToOne: false;
+            referencedRelation: 'albums';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       albums: {
         Row: {
           created_at: string;
@@ -224,7 +285,63 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      accept_album_invite: { Args: { p_invite_id: string }; Returns: string };
+      album_invite_problem: {
+        Args: { p_album_id: string; p_email: string };
+        Returns: string;
+      };
+      album_member_list: {
+        Args: { p_album_id: string };
+        Returns: {
+          artifact_count: number;
+          display_name: string;
+          email: string;
+          joined_at: string;
+          role: string;
+          user_id: string;
+        }[];
+      };
+      check_album_invite: {
+        Args: { p_album_id: string; p_email: string };
+        Returns: string;
+      };
+      current_user_email: { Args: never; Returns: string };
+      decline_album_invite: {
+        Args: { p_invite_id: string };
+        Returns: undefined;
+      };
+      invite_to_album: {
+        Args: { p_album_id: string; p_email: string };
+        Returns: {
+          album_id: string;
+          created_at: string;
+          email: string;
+          id: string;
+          invited_by: string;
+        };
+        SetofOptions: {
+          from: '*';
+          to: 'album_invites';
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      is_album_member: { Args: { p_album_id: string }; Returns: boolean };
+      is_artifact_shared_with_me: {
+        Args: { p_artifact_id: string };
+        Returns: boolean;
+      };
+      my_album_invites: {
+        Args: never;
+        Returns: {
+          album_id: string;
+          album_title: string;
+          created_at: string;
+          id: string;
+          invited_by: string;
+          inviter_name: string;
+        }[];
+      };
     };
     Enums: {
       artifact_status: 'uploading' | 'ready' | 'failed';

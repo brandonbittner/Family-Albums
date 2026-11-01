@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import UserAvatar from '@/components/UserAvatar';
+import { fetchMyInvites } from '@/lib/invites';
 import { getArtifactUrls } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
@@ -248,6 +249,21 @@ export default function AlbumsScreen() {
 
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  // Pending invites drive the bell's badge; refreshed whenever home is shown.
+  // TODO: update the badge live (Supabase Realtime or push) instead of on focus.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      fetchMyInvites()
+        .then((invites) => active && setNotificationCount(invites.length))
+        .catch((e) => console.error('[AlbumsScreen] invites fetch failed:', e));
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
   const searchWidth = useRef(new Animated.Value(44)).current;
   const avatarOpacity = useRef(new Animated.Value(1)).current;
   const avatarScale = useRef(new Animated.Value(1)).current;
@@ -483,11 +499,11 @@ export default function AlbumsScreen() {
         >
           {/* Matches the collapsed search circle */}
           <Pressable
-            onPress={() => {
-              // TODO: open the notifications screen (album invites, new artifacts, etc.)
-            }}
+            onPress={() => router.push('/(app)/notifications')}
             accessibilityRole="button"
-            accessibilityLabel="Notifications"
+            accessibilityLabel={
+              notificationCount > 0 ? `Notifications, ${notificationCount} new` : 'Notifications'
+            }
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
             <View
@@ -509,9 +525,31 @@ export default function AlbumsScreen() {
                   style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
                 />
                 <Bell size={18} color="#F5F5F5" />
-                {/* TODO: show an unread badge when there are new notifications */}
               </BlurView>
             </View>
+            {/* Outside the clipped circle so it can overhang the edge */}
+            {notificationCount > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -3,
+                  right: -3,
+                  minWidth: 18,
+                  height: 18,
+                  paddingHorizontal: 4,
+                  borderRadius: 9,
+                  backgroundColor: '#EF4444',
+                  borderWidth: 2,
+                  borderColor: '#0A0A0A',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
 
           <Pressable

@@ -1,68 +1,30 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Clock, ImageIcon, UserPlus } from 'lucide-react-native';
+import { ArrowLeft, Clock, ImageIcon, UserPlus, X } from 'lucide-react-native';
 import { useCallback, useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Avatar from '@/components/Avatar';
 import GlassIconButton from '@/components/GlassIconButton';
 import { useAuth } from '@/hooks/use-auth';
-import { supabase } from '@/lib/supabase';
+import {
+  cancelInvite,
+  fetchAlbumInvites,
+  fetchAlbumMembers,
+  inviteErrorMessage,
+  type AlbumMember,
+  type PendingInvite,
+} from '@/lib/invites';
 import { timeAgo } from '@/lib/time-ago';
-
-type Member = {
-  userId: string;
-  name: string | null;
-  email: string | null;
-  role: 'Owner';
-  /** Artifacts this person has added to the album. */
-  artifactCount: number;
-};
-
-type Invite = {
-  id: string;
-  /** Name entered when inviting, if any. */
-  name: string | null;
-  email: string;
-  sentAt: Date;
-};
-
-// TODO: fetch the album's members (people who accepted an invite) from the
-//       album membership table, joined to profiles for names and with a count of
-//       album_artifacts each has added. Sample data until album sharing exists.
-const SAMPLE_MEMBERS: Member[] = [
-  {
-    userId: 'sample-member-1',
-    name: 'Sample Member',
-    email: 'member@example.com',
-    role: 'Owner',
-    artifactCount: 12,
-  },
-  {
-    userId: 'sample-member-2',
-    name: 'Another Member',
-    email: 'another@example.com',
-    role: 'Owner',
-    artifactCount: 3,
-  },
-];
-
-// TODO: fetch pending invites for this album from the invites table.
-//       Sample data until album sharing exists.
-const SAMPLE_INVITES: Invite[] = [
-  {
-    id: 'sample-invite-1',
-    name: 'Invited Person',
-    email: 'invited@example.com',
-    sentAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-  },
-  {
-    id: 'sample-invite-2',
-    name: null,
-    email: 'pending@example.com',
-    sentAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000),
-  },
-];
 
 function formatCount(n: number): string {
   return `${n} ${n === 1 ? 'artifact' : 'artifacts'}`;
@@ -73,27 +35,65 @@ export default function AlbumMembersScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const [myCount, setMyCount] = useState<number | null>(null);
+  const [members, setMembers] = useState<AlbumMember[] | null>(null);
+  const [invites, setInvites] = useState<PendingInvite[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  /** Invites being cancelled, to show a spinner in place of their X. */
+  const [cancelling, setCancelling] = useState<string[]>([]);
 
-  // Count what the signed-in user has added; refreshed each time the screen shows.
+  // Refreshed each time the screen shows, e.g. after sending an invite.
   useFocusEffect(
     useCallback(() => {
-      if (!user) return;
       let cancelled = false;
-      supabase
-        .from('album_artifacts')
-        .select('*', { count: 'exact', head: true })
-        .eq('album_id', id)
-        .eq('added_by', user.id)
-        .then(({ count, error }) => {
-          if (error) console.error('[AlbumMembersScreen] count failed:', error);
-          if (!cancelled) setMyCount(count ?? 0);
+      Promise.all([fetchAlbumMembers(id), fetchAlbumInvites(id)])
+        .then(([m, i]) => {
+          if (cancelled) return;
+          setMembers(m);
+          setInvites(i);
+          setLoadFailed(false);
+        })
+        .catch((e) => {
+          console.error('[AlbumMembersScreen] load failed:', e);
+          if (!cancelled) setLoadFailed(true);
         });
       return () => {
         cancelled = true;
       };
-    }, [id, user]),
+    }, [id]),
   );
+
+  const handleCancelInvite = (invite: PendingInvite) => {
+    Alert.alert('Cancel invitation?', `${invite.email} won’t be able to join this album.`, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Cancel Invitation',
+        style: 'destructive',
+        onPress: async () => {
+          setCancelling((prev) => [...prev, invite.id]);
+          try {
+            await cancelInvite(invite.id);
+          } catch (e) {
+            console.error('[AlbumMembersScreen] cancel invite failed:', e);
+            // If it's already gone (accepted or declined), just refresh below.
+            if (!(e instanceof Error && e.message === 'invite_not_found')) {
+              Alert.alert('Couldn’t cancel invitation', inviteErrorMessage(e));
+              setCancelling((prev) => prev.filter((id) => id !== invite.id));
+              return;
+            }
+            fetchAlbumMembers(id)
+              .then(setMembers)
+              .catch(() => {});
+          }
+          setInvites((prev) => prev?.filter((i) => i.id !== invite.id) ?? prev);
+          setCancelling((prev) => prev.filter((id) => id !== invite.id));
+        },
+      },
+    ]);
+  };
+
+  const me = members?.find((m) => m.userId === user?.id);
+  const others = members?.filter((m) => m.userId !== user?.id) ?? [];
+  const loading = members === null || invites === null;
 
   return (
     <View style={styles.root}>
@@ -104,60 +104,82 @@ export default function AlbumMembersScreen() {
         </GlassIconButton>
         <Text style={styles.navTitle}>Members</Text>
         <GlassIconButton
-          onPress={() => {
-            // TODO: open the add-member flow — pick someone to invite (e.g. by email
-            //       or from contacts), create a pending invite and add it to Invited
-          }}
-          accessibilityLabel="Add member"
+          onPress={() => router.push({ pathname: '/album/invite', params: { id } })}
+          accessibilityLabel="Invite someone"
         >
           <UserPlus size={19} color="#FFFFFF" />
         </GlassIconButton>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
-        <Section title="You">
-          {user && (
-            <PersonRow
-              seed={user.id}
-              name={profile?.display_name ?? null}
-              email={user.email ?? null}
-              // TODO: use the user's real role once album roles exist
-              tag="Owner"
-              detail={
-                <Detail icon="artifacts" text={myCount === null ? '…' : formatCount(myCount)} />
-              }
-            />
+      {loading ? (
+        <View style={styles.center}>
+          {loadFailed ? (
+            <Text style={styles.empty}>Couldn’t load members.</Text>
+          ) : (
+            <ActivityIndicator color="#737373" />
           )}
-        </Section>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
+          <Section title="You">
+            {user && (
+              <PersonRow
+                seed={user.id}
+                name={profile?.display_name ?? null}
+                email={user.email ?? null}
+                // TODO: show the real role once album roles are defined — everyone
+                //       is an owner for now.
+                tag="Owner"
+                detail={<Detail icon="artifacts" text={formatCount(me?.artifactCount ?? 0)} />}
+              />
+            )}
+          </Section>
 
-        <Section title="Members" emptyText="No one else has joined this album yet.">
-          {SAMPLE_MEMBERS.map((m, i) => (
-            <PersonRow
-              key={m.userId}
-              seed={m.userId}
-              name={m.name}
-              email={m.email}
-              tag={m.role}
-              detail={<Detail icon="artifacts" text={formatCount(m.artifactCount)} />}
-              divider={i > 0}
-            />
-          ))}
-        </Section>
+          <Section title="Members" emptyText="No one else has joined this album yet.">
+            {others.map((m, i) => (
+              <PersonRow
+                key={m.userId}
+                seed={m.userId}
+                name={m.name}
+                email={m.email}
+                tag="Owner"
+                detail={<Detail icon="artifacts" text={formatCount(m.artifactCount)} />}
+                divider={i > 0}
+              />
+            ))}
+          </Section>
 
-        <Section title="Invited" emptyText="No pending invites.">
-          {SAMPLE_INVITES.map((inv, i) => (
-            <PersonRow
-              key={inv.id}
-              seed={inv.email}
-              name={inv.name}
-              email={inv.email}
-              tag="Invited"
-              detail={<Detail icon="sent" text={timeAgo(inv.sentAt)} />}
-              divider={i > 0}
-            />
-          ))}
-        </Section>
-      </ScrollView>
+          {/* TODO: let members resend a pending invite (e.g. once invites are emailed). */}
+          <Section title="Invited" emptyText="No pending invites.">
+            {invites.map((inv, i) => (
+              <Animated.View key={inv.id} exiting={FadeOut} layout={LinearTransition}>
+                <PersonRow
+                  seed={inv.email}
+                  name={null}
+                  email={inv.email}
+                  detail={<Detail icon="sent" text={timeAgo(inv.sentAt)} />}
+                  divider={i > 0}
+                  action={
+                    cancelling.includes(inv.id) ? (
+                      <ActivityIndicator size="small" color="#737373" style={styles.action} />
+                    ) : (
+                      <Pressable
+                        onPress={() => handleCancelInvite(inv)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Cancel invitation to ${inv.email}`}
+                        hitSlop={10}
+                        style={styles.action}
+                      >
+                        <X size={18} color="#737373" />
+                      </Pressable>
+                    )
+                  }
+                />
+              </Animated.View>
+            ))}
+          </Section>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -189,13 +211,17 @@ function PersonRow({
   tag,
   detail,
   divider,
+  action,
 }: {
   seed: string;
   name: string | null;
   email: string | null;
-  tag: 'Owner' | 'Invited';
+  /** Role tag; omitted for pending invites, which their section already labels. */
+  tag?: 'Owner';
   detail: ReactNode;
   divider?: boolean;
+  /** Shown at the end of the row, e.g. a button to cancel an invite. */
+  action?: ReactNode;
 }) {
   // Someone without a name yet (e.g. invited by email) is shown by their email.
   const title = name?.trim() || email || 'Unknown';
@@ -208,9 +234,12 @@ function PersonRow({
         </Text>
         {detail}
       </View>
-      <View style={[styles.tag, tag === 'Invited' && styles.tagInvited]}>
-        <Text style={[styles.tagText, tag === 'Invited' && styles.tagTextInvited]}>{tag}</Text>
-      </View>
+      {tag && (
+        <View style={styles.tag}>
+          <Text style={styles.tagText}>{tag}</Text>
+        </View>
+      )}
+      {action}
     </View>
   );
 }
@@ -236,6 +265,7 @@ const styles = StyleSheet.create({
   },
   navTitle: { color: 'rgba(255,255,255,0.85)', fontSize: 17, fontWeight: '600' },
   content: { paddingHorizontal: 16, paddingTop: 20 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: {
     color: '#737373',
     fontSize: 13,
@@ -267,9 +297,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(59,130,246,0.16)',
   },
-  tagInvited: { backgroundColor: 'rgba(245,158,11,0.14)' },
   tagText: { color: '#60A5FA', fontSize: 12, fontWeight: '600' },
-  tagTextInvited: { color: '#FBBF24' },
+  // Same size whether it holds the X or a spinner.
+  action: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   detail: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   detailText: { color: '#A3A3A3', fontSize: 13 },
   empty: { color: '#737373', fontSize: 14, paddingHorizontal: 14, paddingVertical: 16 },
